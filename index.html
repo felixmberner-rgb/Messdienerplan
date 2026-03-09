@@ -28,7 +28,23 @@
             padding: 20px 16px;
             padding-top: max(20px, env(safe-area-inset-top));
         }
-        h1, h2 { text-align: center; margin-bottom: 20px; }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        h1 { margin: 0; font-size: 24px; }
+        .settings-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--primary);
+            cursor: pointer;
+            padding: 0;
+            width: auto;
+        }
+        h2 { margin-top: 0; margin-bottom: 16px; font-size: 18px; }
         .card {
             background-color: var(--card-bg);
             border-radius: 12px;
@@ -37,17 +53,16 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
-        textarea, input[type="text"] {
+        input[type="text"], input[type="file"] {
             width: 100%;
             padding: 10px;
             border: 1px solid var(--border);
             border-radius: 8px;
-            font-size: 16px; /* Verhindert Auto-Zoom auf iOS */
+            font-size: 16px;
             box-sizing: border-box;
             margin-bottom: 12px;
-            font-family: inherit;
+            background: #fff;
         }
-        textarea { resize: vertical; min-height: 80px; }
         button {
             background-color: var(--primary);
             color: white;
@@ -70,28 +85,35 @@
             border-radius: 0 8px 8px 0;
         }
         .editor-row input { margin-bottom: 8px; }
-        #status { text-align: center; font-size: 14px; color: var(--text-muted); margin-bottom: 10px; }
-        .hidden { display: none; }
+        #status { text-align: center; font-size: 14px; color: var(--text-muted); margin-top: 10px; }
+        .hidden { display: none !important; }
+        .success-text { color: #34c759; font-size: 12px; margin-bottom: 10px; display: block; }
     </style>
 </head>
 <body>
 
-    <h1>Messdiener Plan</h1>
+    <div class="header">
+        <h1>Messdiener Plan</h1>
+        <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
+    </div>
 
-    <div class="card">
+    <div id="settingsCard" class="card">
         <h2>1. Einstellungen</h2>
-        <label for="apiKey">Gemini API-Schlüssel (wird nur lokal gespeichert)</label>
+        <label for="apiKey">Gemini API-Schlüssel</label>
         <input type="text" id="apiKey" placeholder="AIzaSy...">
         
-        <label for="gruppenPlan">Gruppeneinteilung (Dauerhaft speichern)</label>
-        <textarea id="gruppenPlan" placeholder="Füge hier die Gruppeneinteilung ein..."></textarea>
+        <label for="gruppenPlanFile">Gruppeneinteilung (PDF oder Bild)</label>
+        <span id="gruppenPlanStatus" class="success-text hidden">✔️ Gruppeneinteilung ist bereits gespeichert. Neue Datei überschreibt die alte.</span>
+        <input type="file" id="gruppenPlanFile" accept="application/pdf,image/*">
+        
         <button onclick="saveSettings()" style="background-color: #34c759;">Einstellungen speichern</button>
     </div>
 
-    <div class="card">
+    <div id="uploadCard" class="card hidden">
         <h2>2. Aktueller Pfarrbrief</h2>
-        <label for="pfarrbrief">Text des Pfarrbriefs für diese Woche:</label>
-        <textarea id="pfarrbrief" placeholder="Gottesdienstordnung hier einfügen..."></textarea>
+        <label for="pfarrbriefFile">Pfarrbrief hochladen (PDF oder Bild):</label>
+        <input type="file" id="pfarrbriefFile" accept="application/pdf,image/*">
+        
         <button id="btnAnalyze" onclick="analyzeData()">KI Auswertung starten</button>
         <div id="status"></div>
     </div>
@@ -103,51 +125,127 @@
     </div>
 
     <script>
-        // Beim Laden der Seite gespeicherte Daten abrufen
+        // Hilfsfunktion: Datei in Base64 umwandeln (für die KI)
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const result = reader.result;
+                    const base64Data = result.split(',')[1];
+                    resolve({ mimeType: file.type, data: base64Data });
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Beim Laden der Seite
         window.onload = function() {
-            if(localStorage.getItem('geminiApiKey')) document.getElementById('apiKey').value = localStorage.getItem('geminiApiKey');
-            if(localStorage.getItem('gruppenPlan')) document.getElementById('gruppenPlan').value = localStorage.getItem('gruppenPlan');
+            const savedKey = localStorage.getItem('geminiApiKey');
+            const savedGroupData = localStorage.getItem('gruppenPlanData');
+            
+            if(savedKey) {
+                document.getElementById('apiKey').value = savedKey;
+                document.getElementById('settingsCard').classList.add('hidden');
+                document.getElementById('uploadCard').classList.remove('hidden');
+            }
+            if(savedGroupData) {
+                document.getElementById('gruppenPlanStatus').classList.remove('hidden');
+            }
         };
 
-        function saveSettings() {
-            localStorage.setItem('geminiApiKey', document.getElementById('apiKey').value);
-            localStorage.setItem('gruppenPlan', document.getElementById('gruppenPlan').value);
-            alert("Einstellungen lokal gespeichert!");
+        function toggleSettings() {
+            const card = document.getElementById('settingsCard');
+            card.classList.toggle('hidden');
+        }
+
+        async function saveSettings() {
+            const apiKey = document.getElementById('apiKey').value;
+            const fileInput = document.getElementById('gruppenPlanFile');
+            
+            if(!apiKey) {
+                alert("Bitte einen API-Schlüssel eingeben.");
+                return;
+            }
+            localStorage.setItem('geminiApiKey', apiKey);
+
+            if(fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                try {
+                    const fileData = await readFileAsBase64(file);
+                    // Begrenzung prüfen (ca. 4MB Limit im LocalStorage)
+                    if(fileData.data.length > 4000000) {
+                        alert("Die Datei der Gruppeneinteilung ist zu groß. Bitte ein kleineres PDF oder Bild verwenden.");
+                        return;
+                    }
+                    localStorage.setItem('gruppenPlanData', JSON.stringify(fileData));
+                    document.getElementById('gruppenPlanStatus').classList.remove('hidden');
+                } catch(e) {
+                    alert("Fehler beim Lesen der Datei.");
+                    return;
+                }
+            }
+
+            alert("Einstellungen erfolgreich gespeichert!");
+            document.getElementById('settingsCard').classList.add('hidden');
+            document.getElementById('uploadCard').classList.remove('hidden');
         }
 
         async function analyzeData() {
-            const apiKey = document.getElementById('apiKey').value;
-            const gruppenPlan = document.getElementById('gruppenPlan').value;
-            const pfarrbrief = document.getElementById('pfarrbrief').value;
+            const apiKey = localStorage.getItem('geminiApiKey');
+            const savedGroupDataRaw = localStorage.getItem('gruppenPlanData');
+            const pfarrbriefInput = document.getElementById('pfarrbriefFile');
             const statusDiv = document.getElementById('status');
             const btn = document.getElementById('btnAnalyze');
 
-            if (!apiKey || !gruppenPlan || !pfarrbrief) {
-                alert("Bitte API-Schlüssel, Gruppeneinteilung und Pfarrbrief ausfüllen.");
+            if (!apiKey || !savedGroupDataRaw) {
+                alert("Bitte zuerst API-Key und Gruppeneinteilung in den Einstellungen hinterlegen!");
+                document.getElementById('settingsCard').classList.remove('hidden');
+                return;
+            }
+
+            if(pfarrbriefInput.files.length === 0) {
+                alert("Bitte lade den aktuellen Pfarrbrief hoch.");
                 return;
             }
 
             btn.disabled = true;
-            statusDiv.innerText = "Die KI liest den Pfarrbrief... Bitte warten.";
-
-            const prompt = `
-            Du bist ein Assistent. Hier ist der Pfarrbrief: "${pfarrbrief}". 
-            Hier ist die Gruppeneinteilung: "${gruppenPlan}".
-            Aufgabe:
-            1. Finde alle Gottesdienste NUR für den Ort "Thalau".
-            2. Ignoriere Rosenkränze und Unterrichte. Finde auch Beerdigungen/Hochzeiten in Thalau.
-            3. Bestimme die diensthabende Gruppe und teile ein: Unter der Woche 2 Messdiener, am Sonntag 4 Messdiener. Bei Hochzeiten/Beerdigungen keine Namen eintragen.
-            Gib AUSSCHLIESSLICH ein JSON-Array zurück. Format: 
-            [{"datum": "TT.MM.", "uhrzeit": "HH:MM", "typ": "Messe", "messdiener": "Name 1, Name 2"}]
-            Kein Markdown, nur das pure JSON.
-            `;
+            statusDiv.innerText = "Dokumente werden von der KI gelesen... Bitte warten.";
 
             try {
+                // Pfarrbrief Datei einlesen
+                const pfarrbriefFile = pfarrbriefInput.files[0];
+                const pfarrbriefData = await readFileAsBase64(pfarrbriefFile);
+                
+                // Gruppeneinteilung aus dem Speicher laden
+                const gruppenPlanData = JSON.parse(savedGroupDataRaw);
+
+                // Prompt und Dateien zusammenbauen
+                const promptText = `
+                Du bist ein Assistent für Messdienerpläne. 
+                Angehängt sind zwei Dokumente (Bilder oder PDFs). Das eine ist die Gruppeneinteilung, das andere der Pfarrbrief.
+                Aufgabe:
+                1. Finde alle Gottesdienste NUR für den Ort "Thalau".
+                2. Ignoriere Rosenkränze und Unterrichte. Finde auch Beerdigungen/Hochzeiten in Thalau.
+                3. Bestimme anhand der Dokumente die diensthabende Gruppe für die Woche.
+                4. Teile ein: Unter der Woche 2 Messdiener aus der Gruppe, am Sonntag 4 Messdiener. Bei Hochzeiten/Beerdigungen keine Namen eintragen.
+                Gib AUSSCHLIESSLICH ein JSON-Array zurück. Format: 
+                [{"datum": "TT.MM.", "uhrzeit": "HH:MM", "typ": "Messe", "messdiener": "Name 1, Name 2"}]
+                Kein Markdown, nur das pure JSON.
+                `;
+
+                // Anfrage an Gemini schicken
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
+                        contents: [{ 
+                            parts: [
+                                { text: promptText },
+                                { inlineData: { mimeType: gruppenPlanData.mimeType, data: gruppenPlanData.data } },
+                                { inlineData: { mimeType: pfarrbriefData.mimeType, data: pfarrbriefData.data } }
+                            ] 
+                        }],
                         generationConfig: { response_mime_type: "application/json" }
                     })
                 });
@@ -164,7 +262,7 @@
 
             } catch (error) {
                 console.error(error);
-                statusDiv.innerText = "Fehler bei der KI-Auswertung. (API Key prüfen!)";
+                statusDiv.innerText = "Fehler bei der KI-Auswertung. (Prüfe Dateien und API-Key!)";
                 alert(error.message);
             } finally {
                 btn.disabled = false;
@@ -187,7 +285,6 @@
                 `;
                 container.appendChild(div);
             });
-            // Speichere die Anzahl für den PDF Generator
             container.dataset.count = dataArray.length;
         }
 
@@ -215,7 +312,7 @@
                 body: tableRows,
                 startY: 30,
                 theme: 'grid',
-                headStyles: { fillColor: [0, 122, 255] }, // iOS Blau
+                headStyles: { fillColor: [0, 122, 255] }, 
                 styles: { font: 'helvetica', fontSize: 11 }
             });
 
