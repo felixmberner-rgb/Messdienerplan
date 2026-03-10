@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v9.0</title>
+    <title>Messdienerplan v9.1</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -153,7 +153,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v9.0</span>
+            <span class="version">v9.1</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -454,9 +454,8 @@
 
             const savedLogo = localStorage.getItem('savedLogo');
             if (savedLogo) {
-                // Logo verkleinert auf 30x30 mm (Zentriert: 105 - 15 = 90)
                 doc.addImage(savedLogo, 'PNG', 90, y, 30, 30);
-                y += 35; 
+                y += 42; // Abstand zwischen Logo und Überschrift vergrößert
             } else {
                 y += 10;
             }
@@ -464,7 +463,7 @@
             doc.setFont("helvetica", "bold");
             doc.setFontSize(22);
             doc.text("Einteilung der Messdiener/innen", 105, y, { align: "center" });
-            y += 10; // Abstand deutlich verkleinert (von 18 auf 10)
+            y += 10; 
 
             const count = parseInt(document.getElementById('editorContainer').dataset.count || 0);
             let currentStats = {};
@@ -480,7 +479,7 @@
 
                 if (art === 'woche') {
                     const text = document.getElementById(`woche_text_${i}`).value;
-                    y += 4; // Extra Abstand davor auch verkleinert
+                    y += 4; 
                     if (y > 270) { doc.addPage(); y = 20; }
                     
                     doc.setFont("helvetica", "bold");
