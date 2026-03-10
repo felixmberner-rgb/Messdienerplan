@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v13.0</title>
+    <title>Messdienerplan v14.0</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -86,7 +86,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v13.0</span>
+            <span class="version">v14.0</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -391,7 +391,6 @@
                         <input type="text" id="woche_text_${index}" value="${item.text}" style="width:100%; font-weight:600; text-align:center; background:transparent; border:none; font-size:16px;">
                     </div>`;
                 } else if (item.art === 'vorschau') {
-                    // Wird im Editor zum Überprüfen angezeigt, aber im PDF ganz unten platziert.
                     container.innerHTML += `
                     <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px;">
                         <input type="hidden" id="art_${index}" value="vorschau">
@@ -422,8 +421,9 @@
 
             const savedLogo = localStorage.getItem('savedLogo');
             if (savedLogo) {
-                doc.addImage(savedLogo, 'PNG', 90, y, 30, 30);
-                y += 48; // Abstand nach Logo noch etwas vergrößert
+                // Logo etwas vergrößert auf 34x34 mm, Zentriert: (210/2) - (34/2) = 88
+                doc.addImage(savedLogo, 'PNG', 88, y, 34, 34);
+                y += 48; // Abstand wie in vorheriger Version gewünscht
             } else {
                 y += 15;
             }
@@ -443,7 +443,6 @@
                 const art = document.getElementById(`art_${i}`).value;
 
                 if (art === 'vorschau') {
-                    // Text merken, um ihn am Ende in der Box anzuzeigen! Nicht sofort drucken.
                     vorschauTextSaved = document.getElementById(`vorschau_text_${i}`).value;
                     continue;
                 }
@@ -495,7 +494,6 @@
                 }
             }
 
-            // --- News Sektion ---
             const newsItems = [];
             for (let i = 0; i < newsCount; i++) {
                 const hElem = document.getElementById(`newsHeading_${i}`);
@@ -538,7 +536,6 @@
             // --- Graue Abwesenheits- & Formular-Box ---
             y += 10;
             
-            // Text zusammenbauen
             if(vorschauTextSaved && !vorschauTextSaved.endsWith('.')) vorschauTextSaved += ".";
             const formText = (vorschauTextSaved ? vorschauTextSaved + " " : "") + 
                              "Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:";
@@ -546,47 +543,48 @@
             doc.setFont("helvetica", "normal");
             doc.setFontSize(11);
             
-            // Wir beschränken den Text auf 150mm Breite, damit er schön in die Box passt.
             const splitFormText = doc.splitTextToSize(formText, 150);
             
-            // Berechne Höhe der Box
+            const boxPadding = 10;
+            const headingHeight = 8;
             const textHeight = splitFormText.length * 5;
             const buttonHeight = 12;
-            const boxPadding = 10;
-            const boxHeight = boxPadding + textHeight + 6 + buttonHeight + boxPadding; // 6 ist Abstand zwischen Text und Button
+            const boxHeight = boxPadding + headingHeight + textHeight + 6 + buttonHeight + boxPadding; 
             
-            // Reicht der Platz auf der Seite noch aus?
             if (y + boxHeight > 280) { doc.addPage(); y = 20; }
             
-            // Graue Box zeichnen (Breite: 170, zentriert auf 210mm Seite -> X=20)
             doc.setFillColor(245, 245, 245);
             doc.roundedRect(20, y, 170, boxHeight, 5, 5, 'F');
             
-            // Text innerhalb der Box zentriert drucken
-            let textY = y + boxPadding + 4; // Start-Y für Text
+            let currentY = y + boxPadding + 4;
+            
+            // NEU: Überschrift im grauen Kasten
             doc.setTextColor(0, 0, 0);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(14);
+            doc.text("Abwesenheiten eintragen", 105, currentY, { align: "center" });
+            currentY += 8;
+            
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(11);
             splitFormText.forEach(line => {
-                doc.text(line, 105, textY, { align: "center" });
-                textY += 5;
+                doc.text(line, 105, currentY, { align: "center" });
+                currentY += 5;
             });
             
-            // Button innerhalb der Box zeichnen
-            const buttonY = textY + 2; // Ein wenig Platz unter dem Text
+            const buttonY = currentY + 2; 
             doc.setFillColor(0, 122, 255);
-            doc.roundedRect(105 - 32.5, buttonY, 65, buttonHeight, 3, 3, 'F'); // Mittig: X = 105 - halbe Buttonbreite
+            doc.roundedRect(105 - 32.5, buttonY, 65, buttonHeight, 3, 3, 'F'); 
             
-            // Button Text
             doc.setTextColor(255, 255, 255);
             doc.setFont("helvetica", "bold");
             doc.text("Zum Formular", 105, buttonY + 8, { align: "center" });
             
-            // Unsichtbarer Link auf den Button
             doc.link(105 - 32.5, buttonY, 65, buttonHeight, { url: 'https://forms.gle/nSzhoDgeAhUS4QG16' });
             
-            doc.setTextColor(0, 0, 0); // Textfarbe wieder normal machen
+            doc.setTextColor(0, 0, 0); 
             y += boxHeight + 10;
 
-            // Statistik speichern
             document.getElementById('serveStats').value = JSON.stringify(currentStats, null, 2);
             localStorage.setItem('savedServeStats', JSON.stringify(currentStats));
 
