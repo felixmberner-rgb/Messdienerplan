@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdiener">
-    <title>Messdiener Plan v3.1</title>
+    <title>Messdiener Plan v4.0</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -45,14 +45,19 @@
         }
         .settings-btn svg { width: 28px; height: 28px; }
         
-        h2 { margin-top: 0; margin-bottom: 12px; font-size: 13px; text-transform: uppercase; color: var(--text-muted); padding-left: 12px; letter-spacing: 0.5px; }
+        /* Neue, große zentrierte Überschriften */
+        h2 { 
+            text-align: center; font-size: 22px; font-weight: 600; color: var(--text-main); 
+            margin-top: 0; margin-bottom: 20px; padding: 0; letter-spacing: normal; 
+        }
         
         .card {
             background-color: var(--card-bg);
-            border-radius: 10px;
+            border-radius: 12px;
             margin-bottom: 24px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
             overflow: hidden;
+            padding-top: 16px;
         }
         .card-padding { padding: 16px; }
         
@@ -74,7 +79,7 @@
         }
 
         /* iOS List Style for Editor */
-        .editor-block { border-bottom: 8px solid var(--bg-color); }
+        .editor-block { border-bottom: 8px solid var(--bg-color); padding-top: 0; }
         .editor-block-title { background: #f9f9f9; padding: 8px 16px; font-weight: 600; font-size: 14px; color: var(--primary); }
         .ios-list-row {
             display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid #E5E5EA; background: #fff;
@@ -112,7 +117,7 @@
 <body>
 
     <div class="header">
-        <h1>Messdiener <span class="version">v3.1</span></h1>
+        <h1>Messdiener <span class="version">v4.0</span></h1>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="3"></circle>
@@ -140,7 +145,7 @@
                 <summary>Erkannte Gruppen & Regeln bearbeiten</summary>
                 <div class="details-content">
                     <span class="details-label">Gruppeneinteilung (Text):</span>
-                    <textarea id="groupText" placeholder="Hier erscheint der ausgelesene Text der Gruppeneinteilung..."></textarea>
+                    <textarea id="groupText" placeholder="Hier erscheint der Text..."></textarea>
                     
                     <span class="details-label">Dienen IMMER zusammen:</span>
                     <textarea id="alwaysTogether" placeholder="z.B. Anna und Paul"></textarea>
@@ -149,7 +154,18 @@
                     <textarea id="neverTogether" placeholder="z.B. Max und Moritz"></textarea>
                 </div>
             </details>
-            <button onclick="saveSettings()" style="background-color: var(--success);">Speichern</button>
+            
+            <details>
+                <summary>Einsatz-Statistiken (Gerechtigkeit)</summary>
+                <div class="details-content">
+                    <span class="details-label">Bisherige Einsätze:</span>
+                    <textarea id="serveStats" placeholder="{}" readonly style="background: #e5e5ea;"></textarea>
+                    <button class="btn-secondary" onclick="resetStats()">Statistiken zurücksetzen</button>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:8px;">Die App lernt bei jeder PDF-Erstellung dazu, wer wie oft diente, und bevorzugt beim nächsten Mal jene mit weniger Einsätzen.</p>
+                </div>
+            </details>
+
+            <button onclick="saveSettings()" style="background-color: var(--success); margin-top: 16px;">Speichern</button>
         </div>
     </div>
 
@@ -167,7 +183,7 @@
     <div id="editorSection" class="hidden">
         <h2>Plan prüfen & bearbeiten</h2>
         <div class="card" id="editorContainer" style="padding: 0; background: transparent; box-shadow: none;"></div>
-        <button onclick="generatePDF()" style="background-color: var(--warning); margin-bottom: 40px;">PDF Plan erstellen</button>
+        <button onclick="generatePDF()" style="background-color: var(--warning); margin-bottom: 40px;">PDF Plan erstellen & Einsätze speichern</button>
     </div>
 
     <script>
@@ -190,11 +206,21 @@
             if(localStorage.getItem('savedGroupText')) document.getElementById('groupText').value = localStorage.getItem('savedGroupText');
             if(localStorage.getItem('savedAlwaysTogether')) document.getElementById('alwaysTogether').value = localStorage.getItem('savedAlwaysTogether');
             if(localStorage.getItem('savedNeverTogether')) document.getElementById('neverTogether').value = localStorage.getItem('savedNeverTogether');
+            
+            // Statistiken laden
+            document.getElementById('serveStats').value = localStorage.getItem('savedServeStats') || "{}";
         };
 
         function toggleSettings() {
             document.getElementById('settingsCard').classList.toggle('hidden');
             document.getElementById('uploadCard').classList.toggle('hidden');
+        }
+
+        function resetStats() {
+            if(confirm("Möchtest du die Statistik wirklich zurücksetzen? Die App vergisst dann, wer schon oft dran war.")) {
+                document.getElementById('serveStats').value = "{}";
+                localStorage.setItem('savedServeStats', "{}");
+            }
         }
 
         async function extractGroups() {
@@ -204,7 +230,7 @@
             const btn = document.getElementById('btnExtract');
 
             if(!apiKey) return alert("Bitte zuerst den API-Schlüssel eingeben.");
-            if(fileInput.files.length === 0) return alert("Bitte lade eine Datei mit der Gruppeneinteilung hoch.");
+            if(fileInput.files.length === 0) return alert("Bitte lade eine Datei hoch.");
 
             btn.disabled = true;
             statusDiv.innerText = "Lese Dokument... ⏳";
@@ -227,12 +253,9 @@
                 const data = await response.json();
                 if(data.error) throw new Error(data.error.message);
 
-                const extractedText = data.candidates[0].content.parts[0].text;
-                document.getElementById('groupText').value = extractedText;
-                
+                document.getElementById('groupText').value = data.candidates[0].content.parts[0].text;
                 document.querySelector('details').open = true;
-                statusDiv.innerText = "Erfolgreich ausgelesen! Siehe unten.";
-                
+                statusDiv.innerText = "Erfolgreich ausgelesen!";
             } catch(e) {
                 statusDiv.innerText = "Fehler beim Auslesen.";
                 alert(e.message);
@@ -258,6 +281,7 @@
             const groupText = document.getElementById('groupText').value;
             const alwaysTogether = document.getElementById('alwaysTogether').value;
             const neverTogether = document.getElementById('neverTogether').value;
+            const currentStats = document.getElementById('serveStats').value;
             
             const pfarrbriefInput = document.getElementById('pfarrbriefFile');
             const statusDiv = document.getElementById('status');
@@ -267,27 +291,30 @@
             if (pfarrbriefInput.files.length === 0) return alert("Pfarrbrief hochladen!");
 
             btn.disabled = true;
-            statusDiv.innerHTML = "Werte Pfarrbrief aus... Bitte warten ⏳";
+            statusDiv.innerHTML = "Werte Pfarrbrief aus und verteile gerecht... ⏳";
 
             try {
                 const pfarrbriefData = await readFileAsBase64(pfarrbriefInput.files[0]);
 
                 let promptText = `Du bist ein Assistent für Messdienerpläne.
-                Hier ist die aktuelle Gruppeneinteilung als Text:
-                "${groupText}"
+                Gruppeneinteilung: "${groupText}"
                 
-                Aufgaben zum angehängten Pfarrbrief (Bild/PDF):
-                1. Finde alle Gottesdienste NUR für den Ort "Thalau".
-                2. Ignoriere Rosenkränze und Unterrichte. Beerdigungen/Hochzeiten in Thalau einbeziehen.
-                3. Bestimme die diensthabende Gruppe anhand des Pfarrbriefs.
-                4. Teile ein: Unter der Woche 2 Messdiener, Sonntag 4 Messdiener. Bei Hochzeiten/Beerdigungen keine Namen.
+                BISHERIGE EINSÄTZE (Statistik):
+                ${currentStats}
                 
-                WICHTIGE REGELN FÜR DIE ZUTEILUNG DER NAMEN:
-                - Diese Personen IMMER zusammen einteilen: ${alwaysTogether || "Keine Regel"}
-                - Diese Personen NIEMALS zusammen einteilen: ${neverTogether || "Keine Regel"}
+                Aufgaben:
+                1. Finde alle Gottesdienste NUR für den Ort "Thalau" (Beerdigungen/Hochzeiten mitzählen, Rosenkränze/Unterrichte ignorieren).
+                2. Bestimme anhand des Pfarrbriefs die diensthabende Gruppe und deren Zeitraum.
+                3. Teile GERECHT ein! Bevorzuge bei der Namenswahl IMMER diejenigen, die in der Statistik oben die KLEINSTE Zahl (oder gar keinen Eintrag) haben, damit jeder abwechselnd dran ist. Unter der Woche 2 Messdiener, Sonntags 4. (Bei Hochzeiten/Beerdigungen keine Namen eintragen).
                 
-                Gib AUSSCHLIESSLICH ein JSON-Array zurück. Format: 
-                [{"datum": "TT.MM.", "uhrzeit": "HH:MM", "messdiener": "Name 1, Name 2"}]`;
+                REGELN:
+                - IMMER zusammen: ${alwaysTogether || "Keine"}
+                - NIEMALS zusammen: ${neverTogether || "Keine"}
+                
+                GIB AUSSCHLIESSLICH EIN FLACHES JSON-ARRAY ZURÜCK!
+                Es gibt zwei Arten von Objekten im Array:
+                1. Für den Beginn einer neuen Woche/Gruppe: {"art": "woche", "text": "Gruppe B: 22.02.2026 - 28.02.2026"}
+                2. Für jeden Gottesdienst: {"art": "gottesdienst", "wochentag": "Mittwoch", "datum": "18.02.2026", "typ": "Hl. Messe", "uhrzeit": "19.00", "messdiener": "Name 1, Name 2"}`;
 
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${apiKey}`, {
                     method: 'POST',
@@ -323,22 +350,24 @@
             const container = document.getElementById('editorContainer');
             container.innerHTML = ''; 
             dataArray.forEach((item, index) => {
-                container.innerHTML += `
-                    <div class="card editor-block">
-                        <div class="editor-block-title">Gottesdienst ${index + 1}</div>
-                        <div class="ios-list-row">
-                            <label>Datum</label>
-                            <input type="text" id="datum_${index}" value="${item.datum || ''}" placeholder="TT.MM.">
-                        </div>
-                        <div class="ios-list-row">
-                            <label>Uhrzeit</label>
-                            <input type="text" id="uhrzeit_${index}" value="${item.uhrzeit || ''}" placeholder="HH:MM">
-                        </div>
-                        <div class="ios-list-row">
-                            <label>Eingeteilte</label>
-                            <input type="text" id="messdiener_${index}" value="${item.messdiener || ''}" placeholder="-">
-                        </div>
+                if (item.art === 'woche') {
+                    container.innerHTML += `
+                    <div class="card editor-block" style="background: #E5E5EA; padding: 12px; margin-top: 10px;">
+                        <input type="hidden" id="art_${index}" value="woche">
+                        <input type="text" id="woche_text_${index}" value="${item.text}" style="width:100%; font-weight:600; text-align:center; background:transparent; border:none; font-size:16px;">
                     </div>`;
+                } else {
+                    container.innerHTML += `
+                    <div class="card editor-block" style="margin-top: 10px;">
+                        <input type="hidden" id="art_${index}" value="gottesdienst">
+                        <div class="editor-block-title">Gottesdienst</div>
+                        <div class="ios-list-row"><label>Tag</label><input type="text" id="wochentag_${index}" value="${item.wochentag || ''}" placeholder="z.B. Mittwoch"></div>
+                        <div class="ios-list-row"><label>Datum</label><input type="text" id="datum_${index}" value="${item.datum || ''}" placeholder="TT.MM.JJJJ"></div>
+                        <div class="ios-list-row"><label>Typ</label><input type="text" id="typ_${index}" value="${item.typ || 'Hl. Messe'}" placeholder="z.B. Hl. Messe"></div>
+                        <div class="ios-list-row"><label>Uhrzeit</label><input type="text" id="uhrzeit_${index}" value="${item.uhrzeit || ''}" placeholder="HH:MM"></div>
+                        <div class="ios-list-row"><label>Eingeteilte</label><input type="text" id="messdiener_${index}" value="${item.messdiener || ''}" placeholder="-"></div>
+                    </div>`;
+                }
             });
             container.dataset.count = dataArray.length;
         }
@@ -355,6 +384,10 @@
             y += 15;
 
             const count = parseInt(document.getElementById('editorContainer').dataset.count || 0);
+            
+            // Statistiken abrufen
+            let currentStats = {};
+            try { currentStats = JSON.parse(document.getElementById('serveStats').value || "{}"); } catch(e){}
 
             for(let i = 0; i < count; i++) {
                 if (y > 270) {
@@ -362,33 +395,54 @@
                     y = 20;
                 }
 
-                const datum = document.getElementById(`datum_${i}`).value;
-                const uhrzeit = document.getElementById(`uhrzeit_${i}`).value;
-                let messdienerStr = document.getElementById(`messdiener_${i}`).value || "";
+                const art = document.getElementById(`art_${i}`).value;
 
-                // Abschnittsüberschrift für den Gottesdienst
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(12);
-                doc.text(`${datum} um ${uhrzeit} Uhr`, margin, y);
-                y += 8;
-
-                // Namen untereinander auflisten
-                doc.setFont("helvetica", "normal");
-                if (messdienerStr && messdienerStr !== "-") {
-                    const names = messdienerStr.split(',').map(n => n.trim());
-                    names.forEach(name => {
-                        doc.text(name, margin, y);
-                        y += 6;
-                    });
+                if (art === 'woche') {
+                    const text = document.getElementById(`woche_text_${i}`).value;
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(13);
+                    y += 4;
+                    doc.text(text, margin, y);
+                    y += 10;
                 } else {
-                    doc.text("-", margin, y);
+                    const wochentag = document.getElementById(`wochentag_${i}`).value;
+                    const datum = document.getElementById(`datum_${i}`).value;
+                    const typ = document.getElementById(`typ_${i}`).value;
+                    const uhrzeit = document.getElementById(`uhrzeit_${i}`).value;
+                    let messdienerStr = document.getElementById(`messdiener_${i}`).value || "";
+
+                    const headline = `${wochentag} ${datum} ${typ} ${uhrzeit} Uhr`;
+
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(12);
+                    doc.text(headline, margin, y);
+                    y += 8;
+
+                    doc.setFont("helvetica", "normal");
+                    if (messdienerStr && messdienerStr !== "-") {
+                        const names = messdienerStr.split(',').map(n => n.trim());
+                        names.forEach(name => {
+                            if(name) {
+                                doc.text(name, margin, y);
+                                y += 6;
+                                // Statistik hochzählen
+                                currentStats[name] = (currentStats[name] || 0) + 1;
+                            }
+                        });
+                    } else {
+                        doc.text("-", margin, y);
+                        y += 6;
+                    }
                     y += 6;
                 }
-                
-                y += 6; // Abstand vor dem nächsten Eintrag
             }
 
+            // Neue Statistiken speichern
+            document.getElementById('serveStats').value = JSON.stringify(currentStats, null, 2);
+            localStorage.setItem('savedServeStats', JSON.stringify(currentStats));
+
             doc.save("Messdienerplan.pdf");
+            alert("PDF wurde erstellt und die Einsätze der Messdiener wurden für den nächsten Plan fair gespeichert!");
         }
     </script>
 </body>
