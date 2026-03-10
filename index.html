@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v14.0</title>
+    <title>Messdienerplan v14.1</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -86,7 +86,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v14.0</span>
+            <span class="version">v14.1</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -304,23 +304,24 @@
             
             let absencesCSV = "Keine Daten vorhanden";
             if(sheetsLink) {
-                statusDiv.innerHTML = "Lade Live-Abwesenheiten aus Google Sheets... ⏳";
+                statusDiv.innerHTML = "Lade Abwesenheiten aus Google Sheets... ⏳";
                 try {
                     if(sheetsLink.includes("/edit?usp=sharing")) {
-                        throw new Error("Bitte verwende den Link aus 'Im Web veröffentlichen', nicht den Standard-Teilen-Link!");
+                        alert("HINWEIS: Du verwendest den Standard-Link für Google Sheets. Das blockiert Safari meistens!\n\nLösung:\n1. Öffne die Tabelle am PC\n2. Klicke auf Datei > Teilen > Im Web veröffentlichen\n3. Wähle als Format '.csv'\n4. Kopiere diesen neuen Link in die Einstellungen.");
+                        throw new Error("Falscher Tabellen-Link (CORS Fehler)");
                     }
                     const res = await fetch(sheetsLink);
                     if(!res.ok) throw new Error("Netzwerkfehler beim Laden der Tabelle.");
                     absencesCSV = await res.text();
                 } catch(e) {
-                    alert("Fehler beim Laden der Abwesenheiten: " + e.message);
+                    alert("Fehler beim Laden der Google Tabelle!\n\nSafari meldet: " + e.message + "\n\n1. Lösche den Link in den Einstellungen kurz testweise, um zu schauen ob der Rest funktioniert.\n2. Stelle sicher, dass die Tabelle wirklich als CSV im Web veröffentlicht wurde.");
                     btn.disabled = false;
                     statusDiv.innerHTML = "";
                     return;
                 }
             }
 
-            statusDiv.innerHTML = "Werte Pfarrbrief aus und verteile gerecht... ⏳";
+            statusDiv.innerHTML = "Werte Pfarrbrief aus und verteile gerecht... Bitte warten ⏳";
 
             try {
                 const pfarrbriefData = await readFileAsBase64(pfarrbriefInput.files[0]);
@@ -374,7 +375,11 @@
                 document.getElementById('editorSection').classList.remove('hidden');
 
             } catch (error) {
-                statusDiv.innerHTML = `<span style='color: var(--danger);'>Fehler: ${error.message}</span>`;
+                let errorMsg = error.message;
+                if(errorMsg.includes("Load failed") || errorMsg.includes("Failed to fetch")) {
+                    errorMsg = "Verbindung abgebrochen (Load failed)!<br><br><b>Mögliche Gründe:</b><br>1. Die hochgeladene Datei (Pfarrbrief) ist zu groß (Versuche es mit einem Screenshot).<br>2. Ein VPN oder Adblocker blockiert die App.<br>3. Du hast kein Internet.";
+                }
+                statusDiv.innerHTML = `<span style='color: var(--danger); text-align: left; display: inline-block; background: #ffebee; padding: 10px; border-radius: 8px; margin-top: 10px;'>${errorMsg}</span>`;
             } finally {
                 btn.disabled = false;
             }
@@ -421,9 +426,9 @@
 
             const savedLogo = localStorage.getItem('savedLogo');
             if (savedLogo) {
-                // Logo etwas vergrößert auf 34x34 mm, Zentriert: (210/2) - (34/2) = 88
+                // Logo auf 34x34 mm, Zentriert: (210/2) - (34/2) = 88
                 doc.addImage(savedLogo, 'PNG', 88, y, 34, 34);
-                y += 49; 
+                y += 48; 
             } else {
                 y += 15;
             }
@@ -538,7 +543,7 @@
             
             if(vorschauTextSaved && !vorschauTextSaved.endsWith('.')) vorschauTextSaved += ".";
             const formText = (vorschauTextSaved ? vorschauTextSaved + " " : "") + 
-                             "Wenn Abwesenheiten jetzt schon bekannt sind trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:";
+                             "Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:";
             
             doc.setFont("helvetica", "normal");
             doc.setFontSize(11);
@@ -558,7 +563,6 @@
             
             let currentY = y + boxPadding + 4;
             
-            // NEU: Überschrift im grauen Kasten
             doc.setTextColor(0, 0, 0);
             doc.setFont("helvetica", "bold");
             doc.setFontSize(14);
