@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v11.0</title>
+    <title>Messdienerplan v12.0</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -86,7 +86,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v11.0</span>
+            <span class="version">v12.0</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -125,7 +125,6 @@
                     
                     <span class="details-label">Google Sheets Link (Fehlzeiten):</span>
                     <input type="text" id="sheetsLink" placeholder="Link aus 'Im Web veröffentlichen' (.csv)" style="width:100%; border:1px solid var(--border); border-radius:8px; padding:10px; box-sizing:border-box;">
-                    <p style="font-size:12px; color:var(--text-muted); margin-top:4px;">In Google Sheets: Datei > Teilen > Im Web veröffentlichen > Kommagetrennte Werte (.csv)</p>
 
                     <span class="details-label">Dienen IMMER zusammen:</span>
                     <textarea id="alwaysTogether" placeholder="z.B. Anna und Paul" style="min-height: 50px;"></textarea>
@@ -314,7 +313,7 @@
                     if(!res.ok) throw new Error("Netzwerkfehler beim Laden der Tabelle.");
                     absencesCSV = await res.text();
                 } catch(e) {
-                    alert("Fehler beim Laden der Abwesenheiten: " + e.message + "\n\nHast du die Tabelle über 'Datei > Teilen > Im Web veröffentlichen' als CSV freigegeben?");
+                    alert("Fehler beim Laden der Abwesenheiten: " + e.message);
                     btn.disabled = false;
                     statusDiv.innerHTML = "";
                     return;
@@ -332,30 +331,24 @@
                 
                 Abwesenheiten (Live aus Google Forms, als CSV formatiert):
                 "${absencesCSV}"
-                ACHTUNG ZU DEN ABWESENHEITEN:
-                - Ignoriere irrelevante Text-Spalten ("Bist du nur an diesem Tag...").
-                - Wenn ein Name in diesem Zeitraum abwesend/im Urlaub ist, teile diese Person an den betroffenen Tagen NIEMALS ein!
                 
-                STRICKTE REGELN ZUR DATENEXTRAKTION:
+                STRICKTE REGELN ZUR DATENEXTRAKTION & EINTEILUNG:
                 1. Ort: Extrahiere AUSSCHLIESSLICH Termine für "Thalau".
-                2. Erlaubte Typen: "Hl. Messe", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem".
-                3. Ignorieren: "Rosenkranz", "Andacht", "Unterricht", "Beichte".
-                4. Diensthabende Gruppe: Bestimme anhand des Pfarrbriefs die Gruppe für den jeweiligen Zeitraum.
-                
-                REGELN ZUR EINTEILUNG DER NAMEN:
-                - Normaler Gottesdienst (Werktags): 2 Personen aus der diensthabenden Gruppe.
-                - Normaler Gottesdienst (Sonntag/Feiertag): 4 Personen aus der diensthabenden Gruppe.
-                - TAUFEN: Trage KEINE Namen ein, sondern EXAKT den Text "Es werden 2 Freiwillige gesucht!".
-                - HOCHZEITEN: Trage KEINE Namen ein, sondern EXAKT den Text "Es werden 4 Freiwillige gesucht!".
-                - GERECHTIGKEIT: Wähle immer Personen der diensthabenden Gruppe, die laut Statistik die niedrigste Zahl haben.
-                - IMMER zusammen: ${alwaysTogether || "Keine"}
-                - NIEMALS zusammen: ${neverTogether || "Keine"}
+                2. Erlaubte Typen: "Hl. Messe", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem". Ignoriere: "Rosenkranz", "Andacht", "Unterricht".
+                3. Diensthabende Gruppe: Bestimme anhand des Pfarrbriefs die Gruppe für den jeweiligen Zeitraum.
+                4. Werktags: 2 Personen, Sonntags: 4 Personen aus der diensthabenden Gruppe.
+                5. TAUFEN: Trage KEINE Namen ein, sondern EXAKT "Es werden 2 Freiwillige gesucht!".
+                6. HOCHZEITEN: Trage KEINE Namen ein, sondern EXAKT "Es werden 4 Freiwillige gesucht!".
+                7. ABWESENHEITEN: Wenn ein Name in der CSV in diesem Zeitraum abwesend ist, teile diese Person an den Tagen NIEMALS ein!
+                8. GERECHTIGKEIT: Bevorzuge immer Personen mit der niedrigsten Zahl in der Statistik.
+                9. VORSCHAU: Ermittle logisch aus der Reihenfolge der Gruppen, welche Gruppen in den ZWEI WOCHEN NACH diesem Plan turnusmäßig an der Reihe sein werden.
                 
                 GIB AUSSCHLIESSLICH EIN FLACHES JSON-ARRAY ZURÜCK!
                 Beispiel-Format:
                 [
                   {"art": "woche", "text": "Gruppe B: 22.02.2026 - 28.02.2026"},
-                  {"art": "gottesdienst", "wochentag": "Mittwoch", "datum": "18.02.2026", "typ": "Hl. Messe", "uhrzeit": "19.00", "messdiener": "Name 1, Name 2"}
+                  {"art": "gottesdienst", "wochentag": "Mittwoch", "datum": "18.02.2026", "typ": "Hl. Messe", "uhrzeit": "19.00", "messdiener": "Name 1, Name 2"},
+                  {"art": "vorschau", "text": "Vorschau: In den kommenden zwei Wochen sind voraussichtlich die Gruppen C und D dran."}
                 ]`;
 
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, {
@@ -397,6 +390,12 @@
                         <input type="hidden" id="art_${index}" value="woche">
                         <input type="text" id="woche_text_${index}" value="${item.text}" style="width:100%; font-weight:600; text-align:center; background:transparent; border:none; font-size:16px;">
                     </div>`;
+                } else if (item.art === 'vorschau') {
+                    container.innerHTML += `
+                    <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px;">
+                        <input type="hidden" id="art_${index}" value="vorschau">
+                        <input type="text" id="vorschau_text_${index}" value="${item.text}" style="width:100%; font-weight:600; text-align:center; background:transparent; border:none; font-size:14px; color: var(--primary);">
+                    </div>`;
                 } else {
                     container.innerHTML += `
                     <div class="card editor-block" style="margin-top: 10px;">
@@ -422,9 +421,9 @@
             const savedLogo = localStorage.getItem('savedLogo');
             if (savedLogo) {
                 doc.addImage(savedLogo, 'PNG', 90, y, 30, 30);
-                y += 42; 
+                y += 48; // Abstand nach Logo deutlich vergrößert
             } else {
-                y += 10;
+                y += 15;
             }
 
             doc.setFont("helvetica", "bold");
@@ -445,9 +444,16 @@
                     const text = document.getElementById(`woche_text_${i}`).value;
                     y += 4; 
                     if (y > 270) { doc.addPage(); y = 20; }
-                    
                     doc.setFont("helvetica", "bold");
                     doc.setFontSize(14);
+                    doc.text(text, 105, y, { align: "center" });
+                    y += 10;
+                } else if (art === 'vorschau') {
+                    const text = document.getElementById(`vorschau_text_${i}`).value;
+                    y += 6; 
+                    if (y > 270) { doc.addPage(); y = 20; }
+                    doc.setFont("helvetica", "italic");
+                    doc.setFontSize(12);
                     doc.text(text, 105, y, { align: "center" });
                     y += 10;
                 } else {
@@ -487,6 +493,7 @@
                 }
             }
 
+            // --- News Sektion ---
             const newsItems = [];
             for (let i = 0; i < newsCount; i++) {
                 const hElem = document.getElementById(`newsHeading_${i}`);
@@ -526,11 +533,42 @@
                 });
             }
 
+            // --- Interaktiver Formular-Button ---
+            y += 10;
+            if (y > 240) { doc.addPage(); y = 20; }
+            
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(14);
+            doc.text("Abwesenheiten eintragen", margin, y);
+            y += 8;
+            
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(11);
+            const formText = "Trage Urlaub oder Fehlzeiten ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden können. Klicke dazu einfach auf den Button:";
+            const splitFormText = doc.splitTextToSize(formText, 170);
+            doc.text(splitFormText, margin, y);
+            y += (splitFormText.length * 5) + 4;
+            
+            // Zeichne Button (Blaues abgerundetes Rechteck)
+            doc.setFillColor(0, 122, 255);
+            doc.roundedRect(margin, y, 65, 12, 3, 3, 'F');
+            
+            // Button Text
+            doc.setTextColor(255, 255, 255); // Weiß
+            doc.setFont("helvetica", "bold");
+            doc.text("Zum Formular", margin + 32.5, y + 8, { align: "center" });
+            
+            // Der unsichtbare, klickbare Link über dem Button
+            doc.link(margin, y, 65, 12, { url: 'https://forms.gle/nSzhoDgeAhUS4QG16' });
+            
+            doc.setTextColor(0, 0, 0); // Textfarbe wieder auf Schwarz setzen
+            y += 20;
+
             document.getElementById('serveStats').value = JSON.stringify(currentStats, null, 2);
             localStorage.setItem('savedServeStats', JSON.stringify(currentStats));
 
             doc.save("Messdienerplan.pdf");
-            alert("PDF erstellt! Die Statistik wurde gespeichert. (Abwesenheiten werden live aus Google Sheets gelesen).");
+            alert("PDF erstellt! Die Statistik wurde gespeichert.");
         }
     </script>
 </body>
