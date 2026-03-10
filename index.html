@@ -423,7 +423,7 @@
             if (savedLogo) {
                 // Logo etwas vergrößert auf 34x34 mm, Zentriert: (210/2) - (34/2) = 88
                 doc.addImage(savedLogo, 'PNG', 88, y, 34, 34);
-                y += 48; // Abstand wie in vorheriger Version gewünscht
+                y += 49; 
             } else {
                 y += 15;
             }
@@ -538,7 +538,7 @@
             
             if(vorschauTextSaved && !vorschauTextSaved.endsWith('.')) vorschauTextSaved += ".";
             const formText = (vorschauTextSaved ? vorschauTextSaved + " " : "") + 
-                             "Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:";
+                             "Wenn Abwesenheiten jetzt schon bekannt sind trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:";
             
             doc.setFont("helvetica", "normal");
             doc.setFontSize(11);
