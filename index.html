@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Messdiener">
-    <title>Messdiener Plan v4.0</title>
+    <meta name="apple-mobile-web-app-title" content="Messdienerplan">
+    <title>Messdienerplan v5.0</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -35,7 +35,6 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 24px;
-            padding: 0 4px;
         }
         h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
         .version { font-size: 14px; color: var(--text-muted); vertical-align: middle; font-weight: normal; }
@@ -45,7 +44,6 @@
         }
         .settings-btn svg { width: 28px; height: 28px; }
         
-        /* Neue, große zentrierte Überschriften */
         h2 { 
             text-align: center; font-size: 22px; font-weight: 600; color: var(--text-main); 
             margin-top: 0; margin-bottom: 20px; padding: 0; letter-spacing: normal; 
@@ -78,7 +76,6 @@
             box-sizing: border-box; min-height: 80px; font-family: inherit; margin-top: 8px; resize: vertical;
         }
 
-        /* iOS List Style for Editor */
         .editor-block { border-bottom: 8px solid var(--bg-color); padding-top: 0; }
         .editor-block-title { background: #f9f9f9; padding: 8px 16px; font-weight: 600; font-size: 14px; color: var(--primary); }
         .ios-list-row {
@@ -98,7 +95,6 @@
         button:disabled { background-color: var(--text-muted); opacity: 0.7; }
         .btn-secondary { background-color: #E5E5EA; color: var(--primary); margin-top: 8px; padding: 10px; font-size: 15px; }
 
-        /* Accordion Style */
         details { background: #F9F9F9; border-radius: 8px; margin-top: 12px; border: 1px solid var(--border); }
         summary {
             padding: 14px; font-weight: 600; font-size: 15px; cursor: pointer; list-style: none;
@@ -112,12 +108,13 @@
 
         #status { text-align: center; font-size: 14px; color: var(--text-muted); margin-top: 16px; font-weight: 500; }
         .hidden { display: none !important; }
+        .success-text { color: #34c759; font-size: 12px; margin-top: 6px; display: block; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>Messdiener <span class="version">v4.0</span></h1>
+        <h1>Messdienerplan <span class="version">v5.0</span></h1>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="3"></circle>
@@ -133,6 +130,12 @@
             <input type="text" id="apiKey" placeholder="AIzaSy...">
         </div>
         
+        <div class="ios-input-group">
+            <label>Logo / Kopfzeile (PDF Bild)</label>
+            <input type="file" id="logoFile" accept="image/*">
+            <span id="logoStatus" class="success-text hidden">✔️ Logo ist gespeichert.</span>
+        </div>
+
         <div class="ios-input-group">
             <label>Gruppeneinteilung hochladen</label>
             <input type="file" id="gruppenPlanFile" accept="application/pdf,image/*">
@@ -161,7 +164,6 @@
                     <span class="details-label">Bisherige Einsätze:</span>
                     <textarea id="serveStats" placeholder="{}" readonly style="background: #e5e5ea;"></textarea>
                     <button class="btn-secondary" onclick="resetStats()">Statistiken zurücksetzen</button>
-                    <p style="font-size:12px; color:var(--text-muted); margin-top:8px;">Die App lernt bei jeder PDF-Erstellung dazu, wer wie oft diente, und bevorzugt beim nächsten Mal jene mit weniger Einsätzen.</p>
                 </div>
             </details>
 
@@ -183,6 +185,15 @@
     <div id="editorSection" class="hidden">
         <h2>Plan prüfen & bearbeiten</h2>
         <div class="card" id="editorContainer" style="padding: 0; background: transparent; box-shadow: none;"></div>
+        
+        <details style="margin-bottom: 24px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+            <summary style="color: var(--primary);">News & Ankündigungen (Optional)</summary>
+            <div class="details-content">
+                <input type="text" id="newsHeading" placeholder="Überschrift (z.B. News)" style="width:100%; border:1px solid var(--border); border-radius:8px; padding:10px; margin-top:8px; font-size:15px; box-sizing:border-box;">
+                <textarea id="newsContent" placeholder="Hier Informationen oder Ankündigungen für die Messdiener eintragen..." style="min-height: 100px;"></textarea>
+            </div>
+        </details>
+
         <button onclick="generatePDF()" style="background-color: var(--warning); margin-bottom: 40px;">PDF Plan erstellen & Einsätze speichern</button>
     </div>
 
@@ -190,7 +201,7 @@
         function readFileAsBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
-                reader.onload = () => resolve({ mimeType: file.type, data: reader.result.split(',')[1] });
+                reader.onload = () => resolve({ mimeType: file.type, data: reader.result.split(',')[1], fullDataUri: reader.result });
                 reader.onerror = reject;
                 reader.readAsDataURL(file);
             });
@@ -206,8 +217,8 @@
             if(localStorage.getItem('savedGroupText')) document.getElementById('groupText').value = localStorage.getItem('savedGroupText');
             if(localStorage.getItem('savedAlwaysTogether')) document.getElementById('alwaysTogether').value = localStorage.getItem('savedAlwaysTogether');
             if(localStorage.getItem('savedNeverTogether')) document.getElementById('neverTogether').value = localStorage.getItem('savedNeverTogether');
+            if(localStorage.getItem('savedLogo')) document.getElementById('logoStatus').classList.remove('hidden');
             
-            // Statistiken laden
             document.getElementById('serveStats').value = localStorage.getItem('savedServeStats') || "{}";
         };
 
@@ -217,7 +228,7 @@
         }
 
         function resetStats() {
-            if(confirm("Möchtest du die Statistik wirklich zurücksetzen? Die App vergisst dann, wer schon oft dran war.")) {
+            if(confirm("Möchtest du die Statistik wirklich zurücksetzen?")) {
                 document.getElementById('serveStats').value = "{}";
                 localStorage.setItem('savedServeStats', "{}");
             }
@@ -229,8 +240,8 @@
             const statusDiv = document.getElementById('extractStatus');
             const btn = document.getElementById('btnExtract');
 
-            if(!apiKey) return alert("Bitte zuerst den API-Schlüssel eingeben.");
-            if(fileInput.files.length === 0) return alert("Bitte lade eine Datei hoch.");
+            if(!apiKey) return alert("Bitte API-Schlüssel eingeben.");
+            if(fileInput.files.length === 0) return alert("Datei hochladen.");
 
             btn.disabled = true;
             statusDiv.innerText = "Lese Dokument... ⏳";
@@ -243,7 +254,7 @@
                     body: JSON.stringify({
                         contents: [{ 
                             parts: [
-                                { text: "Schreibe die gesamte Gruppeneinteilung (Welche Gruppe hat welche Mitglieder) aus diesem Dokument als übersichtlichen Text heraus. Lass unnötige Dekorationen weg." },
+                                { text: "Schreibe die gesamte Gruppeneinteilung (Welche Gruppe hat welche Mitglieder) aus diesem Dokument als übersichtlichen Text heraus." },
                                 { inlineData: { mimeType: fileData.mimeType, data: fileData.data } }
                             ] 
                         }]
@@ -264,14 +275,26 @@
             }
         }
 
-        function saveSettings() {
+        async function saveSettings() {
             const apiKey = document.getElementById('apiKey').value;
-            if(!apiKey) return alert("Bitte API-Schlüssel eingeben.");
+            const logoInput = document.getElementById('logoFile');
             
+            if(!apiKey) return alert("Bitte API-Schlüssel eingeben.");
             localStorage.setItem('geminiApiKey', apiKey);
             localStorage.setItem('savedGroupText', document.getElementById('groupText').value);
             localStorage.setItem('savedAlwaysTogether', document.getElementById('alwaysTogether').value);
             localStorage.setItem('savedNeverTogether', document.getElementById('neverTogether').value);
+
+            // Logo speichern
+            if(logoInput.files.length > 0) {
+                try {
+                    const fileData = await readFileAsBase64(logoInput.files[0]);
+                    localStorage.setItem('savedLogo', fileData.fullDataUri);
+                    document.getElementById('logoStatus').classList.remove('hidden');
+                } catch (e) {
+                    alert("Fehler beim Speichern des Logos.");
+                }
+            }
             
             toggleSettings();
         }
@@ -287,7 +310,7 @@
             const statusDiv = document.getElementById('status');
             const btn = document.getElementById('btnAnalyze');
 
-            if (!apiKey || !groupText) return alert("Bitte in den Einstellungen die Gruppen hinterlegen!");
+            if (!apiKey || !groupText) return alert("Bitte Einstellungen prüfen!");
             if (pfarrbriefInput.files.length === 0) return alert("Pfarrbrief hochladen!");
 
             btn.disabled = true;
@@ -298,14 +321,12 @@
 
                 let promptText = `Du bist ein Assistent für Messdienerpläne.
                 Gruppeneinteilung: "${groupText}"
-                
-                BISHERIGE EINSÄTZE (Statistik):
-                ${currentStats}
+                Statistik: ${currentStats}
                 
                 Aufgaben:
                 1. Finde alle Gottesdienste NUR für den Ort "Thalau" (Beerdigungen/Hochzeiten mitzählen, Rosenkränze/Unterrichte ignorieren).
-                2. Bestimme anhand des Pfarrbriefs die diensthabende Gruppe und deren Zeitraum.
-                3. Teile GERECHT ein! Bevorzuge bei der Namenswahl IMMER diejenigen, die in der Statistik oben die KLEINSTE Zahl (oder gar keinen Eintrag) haben, damit jeder abwechselnd dran ist. Unter der Woche 2 Messdiener, Sonntags 4. (Bei Hochzeiten/Beerdigungen keine Namen eintragen).
+                2. Bestimme anhand des Pfarrbriefs die diensthabende Gruppe.
+                3. Teile GERECHT ein! Bevorzuge bei der Namenswahl IMMER diejenigen mit der KLEINSTEN Zahl in der Statistik. Unter der Woche 2 Messdiener, Sonntags 4. (Hochzeiten/Beerdigungen keine Namen).
                 
                 REGELN:
                 - IMMER zusammen: ${alwaysTogether || "Keine"}
@@ -339,7 +360,6 @@
                 document.getElementById('editorSection').classList.remove('hidden');
 
             } catch (error) {
-                console.error(error);
                 statusDiv.innerHTML = `<span style='color: var(--danger);'>Fehler: ${error.message}</span>`;
             } finally {
                 btn.disabled = false;
@@ -378,14 +398,17 @@
             let y = 20;
             const margin = 20;
 
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(16);
-            doc.text("Ministrantinnen/Ministranten Dienst", 105, y, { align: "center" });
-            y += 15;
+            // Logo einfügen, falls vorhanden
+            const savedLogo = localStorage.getItem('savedLogo');
+            if (savedLogo) {
+                // Bild mittig einfügen (Breite: 110, Höhe: proportional ca. 35)
+                doc.addImage(savedLogo, 'PNG', 50, y, 110, 35);
+                y += 45; // Abstand nach dem Logo
+            } else {
+                y += 10;
+            }
 
             const count = parseInt(document.getElementById('editorContainer').dataset.count || 0);
-            
-            // Statistiken abrufen
             let currentStats = {};
             try { currentStats = JSON.parse(document.getElementById('serveStats').value || "{}"); } catch(e){}
 
@@ -399,11 +422,13 @@
 
                 if (art === 'woche') {
                     const text = document.getElementById(`woche_text_${i}`).value;
+                    y += 10; // Absatz VOR der neuen Woche
+                    if (y > 270) { doc.addPage(); y = 20; }
+                    
                     doc.setFont("helvetica", "bold");
-                    doc.setFontSize(13);
-                    y += 4;
-                    doc.text(text, margin, y);
-                    y += 10;
+                    doc.setFontSize(14);
+                    doc.text(text, 105, y, { align: "center" }); // Zentriert
+                    y += 12;
                 } else {
                     const wochentag = document.getElementById(`wochentag_${i}`).value;
                     const datum = document.getElementById(`datum_${i}`).value;
@@ -425,7 +450,6 @@
                             if(name) {
                                 doc.text(name, margin, y);
                                 y += 6;
-                                // Statistik hochzählen
                                 currentStats[name] = (currentStats[name] || 0) + 1;
                             }
                         });
@@ -437,12 +461,32 @@
                 }
             }
 
-            // Neue Statistiken speichern
+            // News Sektion anhängen
+            const newsHeading = document.getElementById('newsHeading').value || "News";
+            const newsContent = document.getElementById('newsContent').value;
+
+            if (newsContent.trim() !== "") {
+                y += 10;
+                if (y > 250) { doc.addPage(); y = 20; } // Neue Seite, falls kein Platz mehr
+                
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(14);
+                doc.text(newsHeading, margin, y);
+                y += 8;
+                
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(12);
+                
+                // Automatischer Zeilenumbruch für langen Text
+                const splitNews = doc.splitTextToSize(newsContent, 170);
+                doc.text(splitNews, margin, y);
+            }
+
             document.getElementById('serveStats').value = JSON.stringify(currentStats, null, 2);
             localStorage.setItem('savedServeStats', JSON.stringify(currentStats));
 
             doc.save("Messdienerplan.pdf");
-            alert("PDF wurde erstellt und die Einsätze der Messdiener wurden für den nächsten Plan fair gespeichert!");
+            alert("PDF wurde erstellt!");
         }
     </script>
 </body>
