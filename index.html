@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v16.0</title>
+    <title>Messdienerplan v16.1</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -93,7 +93,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v16.0</span>
+            <span class="version">v16.1</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -188,7 +188,6 @@
     <script>
         let newsCount = 0;
 
-        // Eigene Funktion für stabilere API-Aufrufe (mit Retry bei Abbrüchen)
         async function fetchWithRetry(url, options, retries = 2) {
             for (let i = 0; i < retries; i++) {
                 try {
@@ -201,7 +200,7 @@
                 } catch (err) {
                     if (i === retries - 1) throw err;
                     console.log(`Verbindungsabbruch. Starte Versuch ${i+2}/${retries}...`);
-                    await new Promise(res => setTimeout(res, 2000)); // 2 Sekunden warten vor Retry
+                    await new Promise(res => setTimeout(res, 2000));
                 }
             }
         }
@@ -250,7 +249,6 @@
             });
         }
 
-        // Editor Auto-Save Logik (geschützt vor Überschreiben mit leeren Daten)
         function saveEditorState() {
             const container = document.getElementById('editorContainer');
             if(!container || container.innerHTML.trim() === '') return; 
@@ -442,7 +440,7 @@
                     });
                 }
 
-                // Strengerer Prompt für weniger Fehler
+                // NEU: Regel 8 behandelt fehlendes Personal
                 let promptText = `Du bist ein Experte für die Erstellung fehlerfreier Messdienerpläne.
                 Gruppen: "${groupText}"
                 Einsatz-Statistik (für faire Verteilung): ${currentStats}
@@ -456,14 +454,15 @@
                 5. TAUFEN: Trage KEINE Namen ein, sondern EXAKT "Es werden 2 Freiwillige gesucht!".
                 6. HOCHZEITEN: Trage KEINE Namen ein, sondern EXAKT "Es werden 4 Freiwillige gesucht!".
                 7. ABWESENHEITEN: Wenn ein Name in der CSV in diesem Zeitraum abwesend ist, teile diese Person an den Tagen NIEMALS ein!
-                8. GERECHTIGKEIT: Bevorzuge immer Personen mit der niedrigsten Zahl in der Statistik.
-                9. VORSCHAU: Ermittle logisch aus der Reihenfolge der Gruppen, welche Gruppen in den ZWEI WOCHEN NACH diesem Plan turnusmäßig an der Reihe sein werden. Schreibe EXAKT diesen Satz: "In den kommenden zwei Wochen sind Gruppe [X] und [Y] dran."
+                8. NOTFALLREGEL (Mangel): Wenn in der diensthabenden Gruppe durch Abwesenheiten nicht genug Personen verfügbar sind, fülle die fehlenden Plätze mit dem exakten Text auf: "1 Ersatz gesucht!" (oder "2 Ersatz gesucht!" usw.).
+                9. GERECHTIGKEIT: Bevorzuge immer Personen mit der niedrigsten Zahl in der Statistik.
+                10. VORSCHAU: Ermittle logisch aus der Reihenfolge der Gruppen, welche Gruppen in den ZWEI WOCHEN NACH diesem Plan turnusmäßig an der Reihe sein werden. Schreibe EXAKT diesen Satz: "In den kommenden zwei Wochen sind Gruppe [X] und [Y] dran."
                 
                 GIB AUSSCHLIESSLICH EIN FLACHES JSON-ARRAY ZURÜCK!
                 Beispiel-Format:
                 [
                   {"art": "woche", "text": "Gruppe B: 22.02.2026 - 28.02.2026"},
-                  {"art": "gottesdienst", "wochentag": "Mittwoch", "datum": "18.02.2026", "typ": "Hl. Messe", "uhrzeit": "19.00", "messdiener": "Name 1, Name 2"},
+                  {"art": "gottesdienst", "wochentag": "Mittwoch", "datum": "18.02.2026", "typ": "Hl. Messe", "uhrzeit": "19.00", "messdiener": "Name 1, Name 2, 2 Ersatz gesucht!"},
                   {"art": "vorschau", "text": "In den kommenden zwei Wochen sind Gruppe C und D dran."}
                 ]`;
 
@@ -481,13 +480,12 @@
                 const data = await response.json();
                 if(data.error) throw new Error(data.error.message);
 
-                // Daten erfolgreich geholt! Erst JETZT die alten Daten löschen, um nichts zu verlieren!
                 localStorage.removeItem('savedEditorData');
                 localStorage.removeItem('lastGeneratedNames');
 
                 const rawJson = data.candidates[0].content.parts[0].text;
                 renderEditor(JSON.parse(rawJson));
-                saveEditorState(); // Direkt speichern
+                saveEditorState();
                 
                 statusDiv.innerHTML = "<span style='color: var(--success);'>Erfolgreich erstellt!</span>";
                 document.getElementById('editorSection').classList.remove('hidden');
@@ -600,17 +598,18 @@
 
                     doc.setFont("helvetica", "normal");
                     if (messdienerStr && messdienerStr !== "-") {
-                        if (messdienerStr.toLowerCase().includes("freiwillige")) {
-                            doc.text(messdienerStr, margin, y);
+                        // Alle Namen und Platzhalter (kommagetrennt) durchlaufen
+                        const names = messdienerStr.split(',').map(n => n.trim()).filter(n => n);
+                        names.forEach(name => {
+                            doc.text(name, margin, y);
                             y += 6;
-                        } else {
-                            const names = messdienerStr.split(',').map(n => n.trim()).filter(n => n);
-                            names.forEach(name => {
-                                doc.text(name, margin, y);
-                                y += 6;
+                            
+                            // NEU: Platzhalter (Ersatz / Freiwillige) von der Gerechtigkeits-Statistik ausschließen!
+                            const nameLower = name.toLowerCase();
+                            if (!nameLower.includes("freiwillige") && !nameLower.includes("ersatz")) {
                                 currentNamesToServe.push(name);
-                            });
-                        }
+                            }
+                        });
                     } else {
                         doc.text("-", margin, y);
                         y += 6;
@@ -672,7 +671,7 @@
             const textHeight = splitFormText.length * 5;
             const spacing = 4;
             const buttonHeight = 10; 
-            const buttonWidth = 46; // Button schmaler gemacht
+            const buttonWidth = 46; 
             const boxHeight = boxPadding + headingHeight + textHeight + spacing + buttonHeight + boxPadding; 
             
             if (y + boxHeight > 280) { doc.addPage(); y = 20; }
@@ -702,13 +701,12 @@
             doc.setTextColor(255, 255, 255);
             doc.setFont("helvetica", "bold");
             doc.setFontSize(11);
-            // Vertikal perfekt zentriert (+6.5 statt +7 oder +8)
             doc.text("Zum Formular", 105, buttonY + 6.5, { align: "center" });
             doc.link(105 - (buttonWidth / 2), buttonY, buttonWidth, buttonHeight, { url: 'https://forms.gle/nSzhoDgeAhUS4QG16' });
             
             doc.setTextColor(0, 0, 0); 
 
-            // STATISTIK DIFFERENZ BERECHNEN (Schützt vor Doppel-Zählungen beim nochmaligen Erstellen)
+            // STATISTIK DIFFERENZ BERECHNEN
             let lastGeneratedNames = JSON.parse(localStorage.getItem('lastGeneratedNames') || "[]");
             let serveStats = JSON.parse(localStorage.getItem('savedServeStats') || "{}");
             
