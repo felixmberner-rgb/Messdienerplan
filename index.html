@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v15.1</title>
+    <title>Messdienerplan v15.2</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -52,7 +52,6 @@
 
         textarea { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 15px; box-sizing: border-box; min-height: 80px; font-family: inherit; margin-top: 8px; resize: vertical; }
 
-        /* Custom File Upload Styling */
         input[type="file"] { display: none; }
         .custom-file-upload {
             display: block; background-color: #E5E5EA; color: var(--primary); padding: 12px 16px;
@@ -94,7 +93,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v15.1</span>
+            <span class="version">v15.2</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -145,11 +144,16 @@
             </details>
             
             <details>
-                <summary>Einsatz-Statistiken (Gerechtigkeit)</summary>
+                <summary>Einsatz-Statistiken (Backup & Reset)</summary>
                 <div class="details-content">
-                    <span class="details-label">Bisherige Einsätze:</span>
-                    <textarea id="serveStats" placeholder="{}" readonly style="background: #e5e5ea;"></textarea>
-                    <button class="btn-secondary" onclick="resetStats()">Statistiken zurücksetzen</button>
+                    <span class="details-label">Bisherige Einsätze (Manuell bearbeitbar):</span>
+                    <textarea id="serveStats" placeholder="{}" style="min-height: 100px; font-family: monospace;"></textarea>
+                    
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-secondary" style="margin-top: 4px; flex: 1;" onclick="copyStats()">Kopieren</button>
+                        <button class="btn-secondary" style="margin-top: 4px; flex: 1; background-color: #ffebee; color: var(--danger);" onclick="resetStats()">Zurücksetzen</button>
+                    </div>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:8px;">Tipp: Drücke "Kopieren", bevor du ein Update machst. Danach kannst du den Text hier wieder einfügen und Speichern!</p>
                 </div>
             </details>
 
@@ -184,6 +188,15 @@
 
     <script>
         let newsCount = 0;
+
+        function copyStats() {
+            const text = document.getElementById('serveStats').value;
+            navigator.clipboard.writeText(text).then(() => {
+                alert("Statistik wurde in die Zwischenablage kopiert!");
+            }).catch(err => {
+                alert("Fehler beim Kopieren: " + err);
+            });
+        }
 
         function updateFileLabel(input, labelId) {
             const label = document.getElementById(labelId);
@@ -279,7 +292,7 @@
         }
 
         function resetStats() {
-            if(confirm("Möchtest du die Statistik wirklich zurücksetzen?")) {
+            if(confirm("Möchtest du die Statistik wirklich komplett löschen? Alle Zähler werden auf 0 gesetzt.")) {
                 document.getElementById('serveStats').value = "{}";
                 localStorage.setItem('savedServeStats', "{}");
                 localStorage.removeItem('lastGeneratedNames');
@@ -330,8 +343,24 @@
         async function saveSettings() {
             const apiKey = document.getElementById('apiKey').value;
             const logoInput = document.getElementById('logoFile');
+            const statsInput = document.getElementById('serveStats').value;
             
             if(!apiKey) return alert("Bitte API-Schlüssel eingeben.");
+
+            // Überprüfe ob die manuell eingegebene Statistik gültig ist
+            try {
+                if(statsInput.trim() !== "") {
+                    JSON.parse(statsInput); 
+                    localStorage.setItem('savedServeStats', statsInput);
+                } else {
+                    localStorage.setItem('savedServeStats', "{}");
+                    document.getElementById('serveStats').value = "{}";
+                }
+            } catch(e) {
+                alert("Achtung: Die Statistik hat ein falsches Format! Bitte überprüfe, ob du versehentlich Klammern oder Anführungszeichen gelöscht hast. Die Einstellung wurde NICHT gespeichert.");
+                return;
+            }
+
             localStorage.setItem('geminiApiKey', apiKey);
             localStorage.setItem('savedGroupText', document.getElementById('groupText').value);
             localStorage.setItem('savedSheetsLink', document.getElementById('sheetsLink').value);
@@ -392,7 +421,6 @@
             statusDiv.innerHTML = "Werte Pfarrbrief aus und verteile gerecht... Bitte warten ⏳";
 
             try {
-                // NEU: Wir laden jetzt alle ausgewählten Dateien (z.B. mehrere Screenshots) in ein Array!
                 const fileParts = [];
                 for (let i = 0; i < pfarrbriefInput.files.length; i++) {
                     const fileData = await readFileAsBase64(pfarrbriefInput.files[i]);
@@ -432,7 +460,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         contents: [{ 
-                            // Wir übergeben den Text und alle hochgeladenen Dateien an die KI
                             parts: [ { text: promptText }, ...fileParts ] 
                         }],
                         generationConfig: { response_mime_type: "application/json" }
@@ -626,8 +653,10 @@
             const boxPadding = 10;
             const headingHeight = 8;
             const textHeight = splitFormText.length * 5;
-            const buttonHeight = 12;
-            const boxHeight = boxPadding + headingHeight + textHeight + 6 + buttonHeight + boxPadding; 
+            const spacing = 4;
+            const buttonHeight = 10; // Kleinerer Button (10 statt 12)
+            const buttonWidth = 50;  // Schmalerer Button (50 statt 65)
+            const boxHeight = boxPadding + headingHeight + textHeight + spacing + buttonHeight + boxPadding; 
             
             if (y + boxHeight > 280) { doc.addPage(); y = 20; }
             
@@ -649,14 +678,16 @@
                 currentY += 5;
             });
             
-            const buttonY = currentY + 2; 
+            // Dezenterer Formular-Button
+            const buttonY = currentY + 3; 
             doc.setFillColor(0, 122, 255);
-            doc.roundedRect(105 - 32.5, buttonY, 65, buttonHeight, 3, 3, 'F'); 
+            doc.roundedRect(105 - (buttonWidth / 2), buttonY, buttonWidth, buttonHeight, 3, 3, 'F'); 
             
             doc.setTextColor(255, 255, 255);
             doc.setFont("helvetica", "bold");
-            doc.text("Zum Formular", 105, buttonY + 8, { align: "center" });
-            doc.link(105 - 32.5, buttonY, 65, buttonHeight, { url: 'https://forms.gle/nSzhoDgeAhUS4QG16' });
+            doc.setFontSize(11);
+            doc.text("Zum Formular", 105, buttonY + 7, { align: "center" });
+            doc.link(105 - (buttonWidth / 2), buttonY, buttonWidth, buttonHeight, { url: 'https://forms.gle/nSzhoDgeAhUS4QG16' });
             
             doc.setTextColor(0, 0, 0); 
 
