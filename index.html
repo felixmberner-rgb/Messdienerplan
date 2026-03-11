@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v14.1</title>
+    <title>Messdienerplan v15.0</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -47,10 +47,18 @@
         .ios-input-group { display: flex; flex-direction: column; border-bottom: 1px solid var(--border); padding: 12px 16px; }
         .ios-input-group:last-child { border-bottom: none; }
         .ios-input-group label { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
-        .ios-input-group input[type="text"], .ios-input-group input[type="file"] { border: none; background: transparent; font-size: 16px; outline: none; padding: 0; color: var(--primary); }
+        .ios-input-group input[type="text"] { border: none; background: transparent; font-size: 16px; outline: none; padding: 0; color: var(--primary); }
         .ios-input-group input::placeholder { color: var(--text-muted); }
 
         textarea { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 15px; box-sizing: border-box; min-height: 80px; font-family: inherit; margin-top: 8px; resize: vertical; }
+
+        /* Custom File Upload Styling */
+        input[type="file"] { display: none; }
+        .custom-file-upload {
+            display: block; background-color: #E5E5EA; color: var(--primary); padding: 12px 16px;
+            border-radius: 10px; font-size: 15px; font-weight: 500; text-align: center; cursor: pointer;
+            margin-top: 4px; box-sizing: border-box;
+        }
 
         .editor-block { border-bottom: 8px solid var(--bg-color); padding-top: 0; }
         .editor-block-title { background: #f9f9f9; padding: 8px 16px; font-weight: 600; font-size: 14px; color: var(--primary); }
@@ -86,7 +94,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v14.1</span>
+            <span class="version">v15.0</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -105,13 +113,15 @@
         
         <div class="ios-input-group">
             <label>Logo / Kopfzeile (Quadratisch)</label>
-            <input type="file" id="logoFile" accept="image/*">
+            <label for="logoFile" class="custom-file-upload" id="logoLabel">📄 Logo auswählen</label>
+            <input type="file" id="logoFile" accept="image/*" onchange="updateFileLabel(this, 'logoLabel')">
             <span id="logoStatus" class="success-text hidden">✔️ Logo ist gespeichert.</span>
         </div>
 
         <div class="ios-input-group">
             <label>Gruppeneinteilung hochladen</label>
-            <input type="file" id="gruppenPlanFile" accept="application/pdf,image/*">
+            <label for="gruppenPlanFile" class="custom-file-upload" id="gruppenLabel">📄 Datei / Foto auswählen</label>
+            <input type="file" id="gruppenPlanFile" accept="application/pdf,image/*" onchange="updateFileLabel(this, 'gruppenLabel')">
             <button class="btn-secondary" onclick="extractGroups()" id="btnExtract">Gruppen aus Datei auslesen</button>
             <div id="extractStatus" style="font-size: 13px; color: var(--text-muted); margin-top: 5px;"></div>
         </div>
@@ -150,7 +160,8 @@
     <div id="uploadCard" class="card">
         <h2>Aktueller Pfarrbrief</h2>
         <div class="ios-input-group" style="border-bottom: none;">
-            <input type="file" id="pfarrbriefFile" accept="application/pdf,image/*">
+            <label for="pfarrbriefFile" class="custom-file-upload" id="pfarrbriefLabel" style="margin-top:0;">📄 Datei oder Screenshot auswählen</label>
+            <input type="file" id="pfarrbriefFile" accept="application/pdf,image/*" onchange="updateFileLabel(this, 'pfarrbriefLabel')">
         </div>
         <div class="card-padding" style="padding-top: 0;">
             <button id="btnAnalyze" onclick="analyzeData()">KI Auswertung starten</button>
@@ -168,19 +179,33 @@
             <button class="btn-secondary" onclick="addNewsItem()" style="margin: 0 14px 14px 14px; width: calc(100% - 28px);">+ Weitere News hinzufügen</button>
         </details>
 
-        <button onclick="generatePDF()" style="background-color: var(--warning); margin-bottom: 40px;">PDF Plan erstellen & Einsätze speichern</button>
+        <button onclick="generatePDF()" style="background-color: var(--warning); margin-bottom: 40px;">PDF Plan & Teilen (Statistik sichern)</button>
     </div>
 
     <script>
         let newsCount = 0;
 
+        function updateFileLabel(input, labelId) {
+            const label = document.getElementById(labelId);
+            if (input.files && input.files.length > 0) {
+                label.innerText = "✅ " + input.files[0].name;
+                label.style.backgroundColor = "#e8f5e9";
+                label.style.color = "#2e7d32";
+            } else {
+                label.innerText = "📄 Datei / Foto auswählen";
+                label.style.backgroundColor = "#E5E5EA";
+                label.style.color = "var(--primary)";
+            }
+        }
+
         function addNewsItem() {
             const container = document.getElementById('newsContainer');
             const div = document.createElement('div');
             div.className = 'news-item';
-            div.innerHTML = `<input type="text" id="newsHeading_${newsCount}" placeholder="Überschrift (z.B. Messdienerprobe)"><textarea id="newsContent_${newsCount}" placeholder="Informationen oder Ankündigungen hier eintragen..."></textarea>`;
+            div.innerHTML = `<input type="text" id="newsHeading_${newsCount}" placeholder="Überschrift (z.B. Messdienerprobe)" oninput="saveEditorState()"><textarea id="newsContent_${newsCount}" placeholder="Informationen oder Ankündigungen hier eintragen..." oninput="saveEditorState()"></textarea>`;
             container.appendChild(div);
             newsCount++;
+            saveEditorState();
         }
 
         function readFileAsBase64(file) {
@@ -191,6 +216,36 @@
                 reader.readAsDataURL(file);
             });
         }
+
+        // Editor Auto-Save Logik
+        function saveEditorState() {
+            const container = document.getElementById('editorContainer');
+            if(!container) return;
+            const count = parseInt(container.dataset.count || 0);
+            const dataArray = [];
+            for (let i = 0; i < count; i++) {
+                const artElem = document.getElementById(`art_${i}`);
+                if(!artElem) continue;
+                const art = artElem.value;
+                if (art === 'woche') {
+                    dataArray.push({ art: 'woche', text: document.getElementById(`woche_text_${i}`).value });
+                } else if (art === 'vorschau') {
+                    dataArray.push({ art: 'vorschau', text: document.getElementById(`vorschau_text_${i}`).value });
+                } else {
+                    dataArray.push({
+                        art: 'gottesdienst',
+                        wochentag: document.getElementById(`wochentag_${i}`).value,
+                        datum: document.getElementById(`datum_${i}`).value,
+                        typ: document.getElementById(`typ_${i}`).value,
+                        uhrzeit: document.getElementById(`uhrzeit_${i}`).value,
+                        messdiener: document.getElementById(`messdiener_${i}`).value
+                    });
+                }
+            }
+            localStorage.setItem('savedEditorData', JSON.stringify(dataArray));
+        }
+
+        document.getElementById('editorSection').addEventListener('input', saveEditorState);
 
         window.onload = function() {
             if(localStorage.getItem('geminiApiKey')) {
@@ -206,6 +261,13 @@
             if(localStorage.getItem('savedLogo')) document.getElementById('logoStatus').classList.remove('hidden');
             
             document.getElementById('serveStats').value = localStorage.getItem('savedServeStats') || "{}";
+            
+            // Editor wiederherstellen, falls vorhanden
+            const savedEditor = localStorage.getItem('savedEditorData');
+            if (savedEditor) {
+                renderEditor(JSON.parse(savedEditor));
+                document.getElementById('editorSection').classList.remove('hidden');
+            }
             addNewsItem();
         };
 
@@ -218,6 +280,7 @@
             if(confirm("Möchtest du die Statistik wirklich zurücksetzen?")) {
                 document.getElementById('serveStats').value = "{}";
                 localStorage.setItem('savedServeStats', "{}");
+                localStorage.removeItem('lastGeneratedNames');
             }
         }
 
@@ -300,6 +363,10 @@
             if (!apiKey || !groupText) return alert("Bitte Einstellungen prüfen!");
             if (pfarrbriefInput.files.length === 0) return alert("Pfarrbrief hochladen!");
 
+            // WICHTIG: Alter Editor wird bei NEUER Auswertung gelöscht.
+            localStorage.removeItem('savedEditorData');
+            localStorage.removeItem('lastGeneratedNames');
+
             btn.disabled = true;
             
             let absencesCSV = "Keine Daten vorhanden";
@@ -335,7 +402,7 @@
                 
                 STRICKTE REGELN ZUR DATENEXTRAKTION & EINTEILUNG:
                 1. Ort: Extrahiere AUSSCHLIESSLICH Termine für "Thalau".
-                2. Erlaubte Typen: "Hl. Messe", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem". Ignoriere: "Rosenkranz", "Andacht", "Unterricht".
+                2. Erlaubte Typen: NUR "Hl. Messe", "Gottesdienst", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem". Ignoriere STRIKT alles andere (wie Rosenkranz, Andacht, Unterricht).
                 3. Diensthabende Gruppe: Bestimme anhand des Pfarrbriefs die Gruppe für den jeweiligen Zeitraum.
                 4. Werktags: 2 Personen, Sonntags: 4 Personen aus der diensthabenden Gruppe.
                 5. TAUFEN: Trage KEINE Namen ein, sondern EXAKT "Es werden 2 Freiwillige gesucht!".
@@ -371,13 +438,14 @@
 
                 const rawJson = data.candidates[0].content.parts[0].text;
                 renderEditor(JSON.parse(rawJson));
+                saveEditorState();
                 statusDiv.innerHTML = "<span style='color: var(--success);'>Erfolgreich erstellt!</span>";
                 document.getElementById('editorSection').classList.remove('hidden');
 
             } catch (error) {
                 let errorMsg = error.message;
                 if(errorMsg.includes("Load failed") || errorMsg.includes("Failed to fetch")) {
-                    errorMsg = "Verbindung abgebrochen (Load failed)!<br><br><b>Mögliche Gründe:</b><br>1. Die hochgeladene Datei (Pfarrbrief) ist zu groß (Versuche es mit einem Screenshot).<br>2. Ein VPN oder Adblocker blockiert die App.<br>3. Du hast kein Internet.";
+                    errorMsg = "Verbindung abgebrochen (Load failed)!<br><br><b>Mögliche Gründe:</b><br>1. Die hochgeladene PDF ist extrem groß (Tipp: Mache einfach einen Screenshot vom Pfarrbrief und lade das Foto hoch!).<br>2. Ein VPN oder Adblocker blockiert die App.<br>3. Du hast kein Internet.";
                 }
                 statusDiv.innerHTML = `<span style='color: var(--danger); text-align: left; display: inline-block; background: #ffebee; padding: 10px; border-radius: 8px; margin-top: 10px;'>${errorMsg}</span>`;
             } finally {
@@ -418,7 +486,14 @@
             container.dataset.count = dataArray.length;
         }
 
-        function generatePDF() {
+        // Hilfsfunktion für faire Statistiken
+        function getFrequencies(arr) {
+            let freq = {};
+            arr.forEach(n => freq[n] = (freq[n] || 0) + 1);
+            return freq;
+        }
+
+        async function generatePDF() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             let y = 15;
@@ -426,7 +501,7 @@
 
             const savedLogo = localStorage.getItem('savedLogo');
             if (savedLogo) {
-                // Logo auf 34x34 mm, Zentriert: (210/2) - (34/2) = 88
+                // Logo 34x34 mm, Zentriert
                 doc.addImage(savedLogo, 'PNG', 88, y, 34, 34);
                 y += 48; 
             } else {
@@ -439,9 +514,9 @@
             y += 16; 
 
             const count = parseInt(document.getElementById('editorContainer').dataset.count || 0);
-            let currentStats = {};
-            try { currentStats = JSON.parse(document.getElementById('serveStats').value || "{}"); } catch(e){}
-
+            
+            // SMARTE STATISTIK: Wir speichern, wer WIRKLICH im Plan steht
+            let currentNamesToServe = [];
             let vorschauTextSaved = "";
 
             for(let i = 0; i < count; i++) {
@@ -482,13 +557,11 @@
                             doc.text(messdienerStr, margin, y);
                             y += 6;
                         } else {
-                            const names = messdienerStr.split(',').map(n => n.trim());
+                            const names = messdienerStr.split(',').map(n => n.trim()).filter(n => n);
                             names.forEach(name => {
-                                if(name) {
-                                    doc.text(name, margin, y);
-                                    y += 6;
-                                    currentStats[name] = (currentStats[name] || 0) + 1;
-                                }
+                                doc.text(name, margin, y);
+                                y += 6;
+                                currentNamesToServe.push(name);
                             });
                         }
                     } else {
@@ -499,6 +572,7 @@
                 }
             }
 
+            // --- News Sektion ---
             const newsItems = [];
             for (let i = 0; i < newsCount; i++) {
                 const hElem = document.getElementById(`newsHeading_${i}`);
@@ -538,16 +612,14 @@
                 });
             }
 
-            // --- Graue Abwesenheits- & Formular-Box ---
+            // --- Graue Abwesenheits- Box ---
             y += 10;
-            
             if(vorschauTextSaved && !vorschauTextSaved.endsWith('.')) vorschauTextSaved += ".";
             const formText = (vorschauTextSaved ? vorschauTextSaved + " " : "") + 
                              "Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:";
             
             doc.setFont("helvetica", "normal");
             doc.setFontSize(11);
-            
             const splitFormText = doc.splitTextToSize(formText, 150);
             
             const boxPadding = 10;
@@ -583,17 +655,50 @@
             doc.setTextColor(255, 255, 255);
             doc.setFont("helvetica", "bold");
             doc.text("Zum Formular", 105, buttonY + 8, { align: "center" });
-            
             doc.link(105 - 32.5, buttonY, 65, buttonHeight, { url: 'https://forms.gle/nSzhoDgeAhUS4QG16' });
             
             doc.setTextColor(0, 0, 0); 
-            y += boxHeight + 10;
 
-            document.getElementById('serveStats').value = JSON.stringify(currentStats, null, 2);
-            localStorage.setItem('savedServeStats', JSON.stringify(currentStats));
+            // --- SMARTE STATISTIK (DIFFERENZ) ---
+            let lastGeneratedNames = JSON.parse(localStorage.getItem('lastGeneratedNames') || "[]");
+            let serveStats = JSON.parse(localStorage.getItem('savedServeStats') || "{}");
+            
+            let currentFreq = getFrequencies(currentNamesToServe);
+            let lastFreq = getFrequencies(lastGeneratedNames);
 
-            doc.save("Messdienerplan.pdf");
-            alert("PDF erstellt! Die Statistik wurde gespeichert.");
+            // Zuerst die alten Werte abziehen
+            for (let name in lastFreq) {
+                serveStats[name] = (serveStats[name] || 0) - lastFreq[name];
+                if (serveStats[name] < 0) serveStats[name] = 0; 
+            }
+            // Dann die neuen, korrigierten Werte addieren
+            for (let name in currentFreq) {
+                serveStats[name] = (serveStats[name] || 0) + currentFreq[name];
+            }
+
+            document.getElementById('serveStats').value = JSON.stringify(serveStats, null, 2);
+            localStorage.setItem('savedServeStats', JSON.stringify(serveStats));
+            localStorage.setItem('lastGeneratedNames', JSON.stringify(currentNamesToServe));
+
+            // --- NATIVES IOS TEILEN (Web Share API) ---
+            const pdfBlob = doc.output('blob');
+            const file = new File([pdfBlob], "Messdienerplan.pdf", { type: "application/pdf" });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                navigator.share({
+                    files: [file]
+                    // Kein title, kein text, kein url -> WhatsApp sendet nur das reine PDF!
+                }).then(() => {
+                    console.log('Erfolgreich geteilt');
+                }).catch((error) => {
+                    console.log('Teilen abgebrochen', error);
+                    // Fallback falls User abbrengt
+                });
+            } else {
+                // Fallback für Browser, die das nicht unterstützen
+                doc.save("Messdienerplan.pdf");
+                alert("PDF heruntergeladen.");
+            }
         }
     </script>
 </body>
