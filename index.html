@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v16.1</title>
+    <title>Messdienerplan v16.2</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -93,7 +93,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v16.1</span>
+            <span class="version">v16.2</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -235,7 +235,7 @@
             const container = document.getElementById('newsContainer');
             const div = document.createElement('div');
             div.className = 'news-item';
-            div.innerHTML = `<input type="text" id="newsHeading_${newsCount}" placeholder="Überschrift (z.B. Messdienerprobe)"><textarea id="newsContent_${newsCount}" placeholder="Informationen oder Ankündigungen hier eintragen..."></textarea>`;
+            div.innerHTML = `<input type="text" id="newsHeading_${newsCount}" placeholder="Überschrift (z.B. Messdienerprobe)" oninput="saveEditorState()"><textarea id="newsContent_${newsCount}" placeholder="Informationen oder Ankündigungen hier eintragen..." oninput="saveEditorState()"></textarea>`;
             container.appendChild(div);
             newsCount++;
         }
@@ -440,7 +440,6 @@
                     });
                 }
 
-                // NEU: Regel 8 behandelt fehlendes Personal
                 let promptText = `Du bist ein Experte für die Erstellung fehlerfreier Messdienerpläne.
                 Gruppen: "${groupText}"
                 Einsatz-Statistik (für faire Verteilung): ${currentStats}
@@ -598,13 +597,11 @@
 
                     doc.setFont("helvetica", "normal");
                     if (messdienerStr && messdienerStr !== "-") {
-                        // Alle Namen und Platzhalter (kommagetrennt) durchlaufen
                         const names = messdienerStr.split(',').map(n => n.trim()).filter(n => n);
                         names.forEach(name => {
                             doc.text(name, margin, y);
                             y += 6;
                             
-                            // NEU: Platzhalter (Ersatz / Freiwillige) von der Gerechtigkeits-Statistik ausschließen!
                             const nameLower = name.toLowerCase();
                             if (!nameLower.includes("freiwillige") && !nameLower.includes("ersatz")) {
                                 currentNamesToServe.push(name);
@@ -614,10 +611,21 @@
                         doc.text("-", margin, y);
                         y += 6;
                     }
-                    y += 6;
+                    y += 6; // Standardabstand nach jedem Gottesdienst
                 }
             }
 
+            // --- NEUER HINWEISSATZ ---
+            y += 4; // Ein extra Puffer, damit es harmonisch vom letzten Gottesdienst abgesetzt ist
+            if (y > 275) { doc.addPage(); y = 20; }
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(12);
+            doc.setTextColor(0, 0, 0); 
+            doc.text("Wer eingeteilt ist und nicht dienen kann, sucht sich bitte selbstständig eine Vertretung!", 105, y, { align: "center" });
+            y += 14; // Ordentlicher Abstand zum nächsten Bereich (News)
+
+
+            // --- News Sektion ---
             const newsItems = [];
             for (let i = 0; i < newsCount; i++) {
                 const hElem = document.getElementById(`newsHeading_${i}`);
@@ -630,7 +638,6 @@
             }
 
             if (newsItems.length > 0) {
-                y += 10;
                 if (y > 250) { doc.addPage(); y = 20; }
                 
                 doc.setFont("helvetica", "bold");
@@ -655,9 +662,10 @@
                     }
                     y += 4; 
                 });
+                y += 6; // Puffer nach den News
             }
 
-            y += 10;
+            // --- Graue Abwesenheits- & Formular-Box ---
             if(vorschauTextSaved && !vorschauTextSaved.endsWith('.')) vorschauTextSaved += ".";
             const formText = (vorschauTextSaved ? vorschauTextSaved + " " : "") + 
                              "Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:";
