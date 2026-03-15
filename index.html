@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v17.2</title>
+    <title>Messdienerplan v17.3</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -63,7 +63,6 @@
         .editor-block-header { display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 8px 16px; border-bottom: 1px solid var(--border);}
         .editor-block-title { font-weight: 600; font-size: 14px; color: var(--primary); }
         
-        /* Native iOS Trash Can Design - Perfect Alignment */
         .delete-btn { 
             background: transparent; border: none; padding: 0; cursor: pointer; 
             color: var(--danger); display: flex; align-items: center; justify-content: flex-end;
@@ -103,7 +102,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v17.2</span>
+            <span class="version">v17.3</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -328,47 +327,6 @@
             }
         }
 
-        async function extractGroups() {
-            const apiKey = document.getElementById('apiKey').value;
-            const fileInput = document.getElementById('gruppenPlanFile');
-            const statusDiv = document.getElementById('extractStatus');
-            const btn = document.getElementById('btnExtract');
-
-            if(!apiKey) return alert("Bitte API-Schlüssel eingeben.");
-            if(fileInput.files.length === 0) return alert("Datei hochladen.");
-
-            btn.disabled = true;
-            statusDiv.innerText = "Lese Dokument... ⏳";
-
-            try {
-                const fileData = await readFileAsBase64(fileInput.files[0]);
-                const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ 
-                            parts: [
-                                { text: "Schreibe die gesamte Gruppeneinteilung (Welche Gruppe hat welche Mitglieder) aus diesem Dokument als übersichtlichen Text heraus." },
-                                { inlineData: { mimeType: fileData.mimeType, data: fileData.data } }
-                            ] 
-                        }]
-                    })
-                });
-
-                const data = await response.json();
-                if(data.error) throw new Error(data.error.message);
-
-                document.getElementById('groupText').value = data.candidates[0].content.parts[0].text;
-                document.querySelector('details').open = true;
-                statusDiv.innerText = "Erfolgreich ausgelesen!";
-            } catch(e) {
-                statusDiv.innerText = "Fehler beim Auslesen.";
-                alert(e.message);
-            } finally {
-                btn.disabled = false;
-            }
-        }
-
         async function saveSettings() {
             const apiKey = document.getElementById('apiKey').value;
             const logoInput = document.getElementById('logoFile');
@@ -411,8 +369,6 @@
             const apiKey = localStorage.getItem('geminiApiKey');
             const groupText = document.getElementById('groupText').value;
             const sheetsLink = document.getElementById('sheetsLink').value.trim();
-            const alwaysTogether = document.getElementById('alwaysTogether').value;
-            const neverTogether = document.getElementById('neverTogether').value;
             const currentStats = document.getElementById('serveStats').value;
             
             const pfarrbriefInput = document.getElementById('pfarrbriefFile');
@@ -428,14 +384,12 @@
             if(sheetsLink) {
                 statusDiv.innerHTML = "Lade Abwesenheiten aus Google Sheets... ⏳";
                 try {
-                    if(sheetsLink.includes("/edit?usp=sharing")) {
-                        throw new Error("Falscher Tabellen-Link (CORS Fehler)");
-                    }
+                    if(sheetsLink.includes("/edit?usp=sharing")) throw new Error("Falscher Tabellen-Link");
                     const res = await fetch(sheetsLink);
-                    if(!res.ok) throw new Error("Netzwerkfehler beim Laden der Tabelle.");
+                    if(!res.ok) throw new Error("Netzwerkfehler");
                     absencesCSV = await res.text();
                 } catch(e) {
-                    alert("Fehler beim Laden der Google Tabelle!\n\nSafari meldet: " + e.message + "\n\n1. Lösche den Link in den Einstellungen kurz testweise, um zu schauen ob der Rest funktioniert.\n2. Stelle sicher, dass die Tabelle wirklich als CSV im Web veröffentlicht wurde.");
+                    alert("Fehler beim Laden der Google Tabelle! Bitte Link prüfen.");
                     btn.disabled = false;
                     statusDiv.innerHTML = "";
                     return;
@@ -453,6 +407,7 @@
                     });
                 }
 
+                // Angepasster Prompt für kurze "Gruppe X und Y" Ausgabe
                 let promptText = `Du bist ein Experte für die Erstellung fehlerfreier Messdienerpläne.
                 Gruppen: "${groupText}"
                 Einsatz-Statistik (für faire Verteilung): ${currentStats}
@@ -469,14 +424,14 @@
                 7. ABWESENHEITEN: Wenn ein Name in der CSV in diesem Zeitraum abwesend ist, teile diese Person an den Tagen NIEMALS ein!
                 8. NOTFALLREGEL (Mangel): Wenn in der diensthabenden Gruppe durch Abwesenheiten nicht genug Personen verfügbar sind, fülle die fehlenden Plätze mit dem exakten Text auf: "1 Ersatz gesucht!" (oder "2 Ersatz gesucht!" usw.).
                 9. GERECHTIGKEIT: Bevorzuge immer Personen mit der niedrigsten Zahl in der Statistik.
-                10. VORSCHAU: Bestimme, welche Gruppe am LETZTEN im Plan genannten Sonntag eingeteilt ist. Diese Gruppe ist [X]. Die im Turnus darauffolgende Gruppe ist [Y]. Schreibe EXAKT diesen Satz: "In den kommenden zwei Wochen sind Gruppe [X] und [Y] dran."
+                10. VORSCHAU: Bestimme, welche Gruppe am LETZTEN im Plan genannten Sonntag eingeteilt ist. Diese Gruppe ist [X]. Die im Turnus darauffolgende Gruppe ist [Y]. Gib im Feld "text" für die Vorschau AUSSCHLIESSLICH die zwei Gruppen aus, z.B.: "Gruppe D und A" oder "Gruppe B und C" (KEINEN ganzen Satz!).
                 
                 GIB AUSSCHLIESSLICH EIN FLACHES JSON-ARRAY ZURÜCK!
                 Beispiel-Format:
                 [
                   {"art": "woche", "text": "Gruppe B: 22.02.2026 - 28.02.2026"},
                   {"art": "gottesdienst", "wochentag": "Mittwoch", "datum": "18.02.2026", "typ": "Hl. Messe", "uhrzeit": "19.00", "messdiener": "Name 1, Name 2"},
-                  {"art": "vorschau", "text": "In den kommenden zwei Wochen sind Gruppe C und D dran."}
+                  {"art": "vorschau", "text": "Gruppe C und D"}
                 ]`;
 
                 const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, {
@@ -504,11 +459,7 @@
                 document.getElementById('editorSection').classList.remove('hidden');
 
             } catch (error) {
-                let errorMsg = error.message;
-                if(errorMsg.includes("Load failed") || errorMsg.includes("Failed to fetch")) {
-                    errorMsg = "Verbindung abgebrochen (Load failed)!<br><br>Die Datenmengen waren zu groß oder die Verbindung hat gewackelt. Bitte lade einfach <b>Fotos (Screenshots)</b> vom Pfarrbrief hoch, statt einer riesigen PDF-Datei.";
-                }
-                statusDiv.innerHTML = `<span style='color: var(--danger); text-align: left; display: inline-block; background: #ffebee; padding: 10px; border-radius: 8px; margin-top: 10px;'>${errorMsg}</span>`;
+                statusDiv.innerHTML = `<span style='color: var(--danger); text-align: left; display: inline-block; background: #ffebee; padding: 10px; border-radius: 8px; margin-top: 10px;'>Verbindung abgebrochen oder Daten zu groß. Lade am besten Fotos/Screenshots vom Pfarrbrief hoch.</span>`;
             } finally {
                 btn.disabled = false;
             }
@@ -516,7 +467,6 @@
 
         // Intelligentes chronologisches Sortieren
         function getSortKey(item, originalIndex) {
-            // Vorschau kommt immer ans Ende
             if (item.art === 'vorschau') return "999999999999_" + String(originalIndex).padStart(4, '0');
             
             let dStr = "", tStr = "";
@@ -524,7 +474,6 @@
                 dStr = item.datum || "";
                 tStr = item.uhrzeit || "";
             } else if (item.art === 'woche') {
-                // Liest das allererste Datum in der Überschrift aus
                 let m = item.text.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/);
                 if (m) {
                     dStr = m[0];
@@ -533,25 +482,22 @@
             }
             
             let sortKey = "999999999999"; 
-            
-            // Toleranter Regex: Erkennt auch "20.02." oder "20.2" und füllt das Jahr automatisch auf
             let mDate = dStr.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/);
             if (mDate) {
                 let y = mDate[3] ? mDate[3] : String(new Date().getFullYear());
-                if (y.length === 2) y = "20" + y; // 26 -> 2026
+                if (y.length === 2) y = "20" + y; 
                 let mon = mDate[2].padStart(2, '0');
                 let d = mDate[1].padStart(2, '0');
                 
                 let h = "23", m = "59";
                 if (item.art === 'gottesdienst') {
-                    // Toleranter Zeit-Regex für "18", "18:00", "18.00" oder "1800"
                     let mTime = tStr.match(/(\d{1,2})[:.]?(\d{2})/);
                     if (mTime) {
                         h = mTime[1].padStart(2, '0');
                         m = mTime[2];
                     }
                 } else if (item.art === 'woche') {
-                    h = "00"; m = "00"; // Wochen-Block morgens einsortieren
+                    h = "00"; m = "00";
                 }
                 sortKey = `${y}${mon}${d}${h}${m}`;
             }
@@ -579,7 +525,6 @@
             saveEditorState();
             let dataArray = JSON.parse(localStorage.getItem('savedEditorData') || "[]");
             
-            // Ermittelt, ob es schon eine Vorschau gibt (damit der neue Gottesdienst darüber eingefügt werden kann)
             let vorschauIndex = dataArray.findIndex(item => item.art === 'vorschau');
             let newItem = {art: 'gottesdienst', wochentag: '', datum: '', typ: 'Hl. Messe', uhrzeit: '', messdiener: '', isNew: true};
             
@@ -610,11 +555,10 @@
                     <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px;">
                         <input type="hidden" class="art-input" value="vorschau">
                         <input type="hidden" class="is-new-input" value="${item.isNew ? 'true' : 'false'}">
-                        <label style="font-size:12px; color:var(--primary); font-weight:bold; display:block; text-align:center; margin-bottom:5px;">Erkannter Vorschau-Text (Wird unten in grauer Box eingefügt)</label>
-                        <input type="text" class="vorschau-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:normal; text-align:center; background:transparent; border:none; font-size:14px; color: var(--primary);">
+                        <label style="font-size:12px; color:var(--primary); font-weight:bold; display:block; text-align:center; margin-bottom:5px;">Gruppen Vorschau:</label>
+                        <input type="text" class="vorschau-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:bold; text-align:center; background:transparent; border:none; font-size:16px; color: var(--primary);">
                     </div>`;
                 } else {
-                    // Das perfekte, fluchtende Delete-Icon NUR bei Gottesdiensten
                     container.innerHTML += `
                     <div class="card editor-block" style="margin-top: 10px;">
                         <input type="hidden" class="art-input" value="gottesdienst">
@@ -641,7 +585,6 @@
             });
             container.dataset.count = dataArray.length;
             
-            // Hinzufügen Button nur unten
             container.innerHTML += `
                 <div style="padding: 0 4px; padding-bottom:10px;">
                     <button class="btn-secondary" style="width:100%; font-size:15px; margin-top:6px;" onclick="addGottesdienst()">+ Gottesdienst hinzufügen</button>
@@ -650,203 +593,217 @@
         }
 
         async function generatePDF() {
-            saveEditorState();
-            
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            let y = 15;
-            const margin = 20;
+            try {
+                saveEditorState();
+                
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                let y = 15;
+                const margin = 20;
 
-            const savedLogo = localStorage.getItem('savedLogo');
-            if (savedLogo) {
-                doc.addImage(savedLogo, 'PNG', 88, y, 34, 34);
-                y += 48; 
-            } else {
-                y += 15;
-            }
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(22);
-            doc.text("Einteilung der Messdiener/innen", 105, y, { align: "center" });
-            y += 16; 
-
-            // Sicherer Abruf direkt aus dem LocalStorage (verhindert den Absturz)
-            const editorData = JSON.parse(localStorage.getItem('savedEditorData') || "[]");
-            
-            let currentNamesToServe = [];
-            let vorschauTextSaved = "";
-
-            for(let i = 0; i < editorData.length; i++) {
-                const item = editorData[i];
-                const art = item.art;
-
-                if (art === 'vorschau') {
-                    vorschauTextSaved = item.text;
-                    continue;
+                const savedLogo = localStorage.getItem('savedLogo');
+                if (savedLogo) {
+                    try {
+                        const format = savedLogo.includes('image/png') ? 'PNG' : 'JPEG';
+                        doc.addImage(savedLogo, format, 88, y, 34, 34);
+                        y += 48; 
+                    } catch(imgErr) {
+                        console.error("Logo Fehler:", imgErr);
+                        y += 15; // Fallback, wenn das Bild kaputt ist
+                    }
+                } else {
+                    y += 15;
                 }
 
-                if (y > 270) { doc.addPage(); y = 20; }
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(22);
+                doc.text("Einteilung der Messdiener/innen", 105, y, { align: "center" });
+                y += 16; 
 
-                if (art === 'woche') {
-                    y += 4; 
-                    if (y > 270) { doc.addPage(); y = 20; }
-                    doc.setFont("helvetica", "bold");
-                    doc.setFontSize(14);
-                    doc.text(item.text, 105, y, { align: "center" });
-                    y += 10;
-                } else if (art === 'gottesdienst') {
-                    const headline = `${item.wochentag} ${item.datum} ${item.typ} ${item.uhrzeit} Uhr`;
+                const editorData = JSON.parse(localStorage.getItem('savedEditorData') || "[]");
+                
+                let currentNamesToServe = [];
+                let vorschauTextSaved = "";
 
-                    doc.setFont("helvetica", "bold");
-                    doc.setFontSize(12);
-                    doc.text(headline, margin, y);
-                    y += 8;
+                for(let i = 0; i < editorData.length; i++) {
+                    const item = editorData[i];
+                    const art = item.art;
 
-                    doc.setFont("helvetica", "normal");
-                    if (item.messdiener && item.messdiener !== "-") {
-                        const names = item.messdiener.split(',').map(n => n.trim()).filter(n => n);
-                        names.forEach(name => {
-                            doc.text(name, margin, y);
-                            y += 6;
-                            
-                            const nameLower = name.toLowerCase();
-                            if (!nameLower.includes("freiwillige") && !nameLower.includes("ersatz")) {
-                                currentNamesToServe.push(name);
-                            }
-                        });
-                    } else {
-                        doc.text("-", margin, y);
-                        y += 6;
+                    if (art === 'vorschau') {
+                        vorschauTextSaved = item.text;
+                        continue;
                     }
+
+                    if (y > 270) { doc.addPage(); y = 20; }
+
+                    if (art === 'woche') {
+                        y += 4; 
+                        if (y > 270) { doc.addPage(); y = 20; }
+                        doc.setFont("helvetica", "bold");
+                        doc.setFontSize(14);
+                        doc.text(item.text, 105, y, { align: "center" });
+                        y += 10;
+                    } else if (art === 'gottesdienst') {
+                        const headline = `${item.wochentag} ${item.datum} ${item.typ} ${item.uhrzeit} Uhr`;
+
+                        doc.setFont("helvetica", "bold");
+                        doc.setFontSize(12);
+                        doc.text(headline, margin, y);
+                        y += 8;
+
+                        doc.setFont("helvetica", "normal");
+                        if (item.messdiener && item.messdiener !== "-") {
+                            const names = item.messdiener.split(',').map(n => n.trim()).filter(n => n);
+                            names.forEach(name => {
+                                doc.text(name, margin, y);
+                                y += 6;
+                                
+                                const nameLower = name.toLowerCase();
+                                if (!nameLower.includes("freiwillige") && !nameLower.includes("ersatz")) {
+                                    currentNamesToServe.push(name);
+                                }
+                            });
+                        } else {
+                            doc.text("-", margin, y);
+                            y += 6;
+                        }
+                        y += 6; 
+                    }
+                }
+
+                y += 4; 
+                if (y > 275) { doc.addPage(); y = 20; }
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(12);
+                doc.setTextColor(0, 0, 0); 
+                doc.text("Wer eingeteilt ist und nicht dienen kann, sucht sich bitte selbstständig eine Vertretung!", 105, y, { align: "center" });
+                y += 22; 
+
+                const newsItems = [];
+                for (let i = 0; i < newsCount; i++) {
+                    const hElem = document.getElementById(`newsHeading_${i}`);
+                    const cElem = document.getElementById(`newsContent_${i}`);
+                    if (hElem && cElem) {
+                        const h = hElem.value.trim();
+                        const c = cElem.value.trim();
+                        if (h !== "" || c !== "") newsItems.push({ heading: h, content: c });
+                    }
+                }
+
+                if (newsItems.length > 0) {
+                    if (y > 250) { doc.addPage(); y = 20; }
+                    
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(16);
+                    doc.text("News & Ankündigungen", 105, y, { align: "center" });
+                    y += 12;
+                    
+                    newsItems.forEach(item => {
+                        if (y > 260) { doc.addPage(); y = 20; }
+                        if (item.heading) {
+                            doc.setFont("helvetica", "bold");
+                            doc.setFontSize(13);
+                            doc.text(item.heading, margin, y);
+                            y += 6;
+                        }
+                        if (item.content) {
+                            doc.setFont("helvetica", "normal");
+                            doc.setFontSize(11);
+                            const splitNews = doc.splitTextToSize(item.content, 170);
+                            doc.text(splitNews, margin, y);
+                            y += (splitNews.length * 5) + 4;
+                        }
+                        y += 4; 
+                    });
                     y += 6; 
                 }
-            }
 
-            y += 4; 
-            if (y > 275) { doc.addPage(); y = 20; }
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(12);
-            doc.setTextColor(0, 0, 0); 
-            doc.text("Wer eingeteilt ist und nicht dienen kann, sucht sich bitte selbstständig eine Vertretung!", 105, y, { align: "center" });
-            y += 22; 
-
-            const newsItems = [];
-            for (let i = 0; i < newsCount; i++) {
-                const hElem = document.getElementById(`newsHeading_${i}`);
-                const cElem = document.getElementById(`newsContent_${i}`);
-                if (hElem && cElem) {
-                    const h = hElem.value.trim();
-                    const c = cElem.value.trim();
-                    if (h !== "" || c !== "") newsItems.push({ heading: h, content: c });
+                // --- VORSCHAU SATZ GENERIEREN ---
+                let formText = "";
+                if(vorschauTextSaved && vorschauTextSaved.trim() !== "") {
+                    formText = `In den kommenden zwei Wochen sind ${vorschauTextSaved} dran. Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:`;
+                } else {
+                    formText = "Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:";
                 }
-            }
-
-            if (newsItems.length > 0) {
-                if (y > 250) { doc.addPage(); y = 20; }
                 
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(11);
+                const splitFormText = doc.splitTextToSize(formText, 150);
+                
+                const boxPadding = 10;
+                const headingHeight = 8;
+                const textHeight = splitFormText.length * 5;
+                const spacing = 4;
+                const buttonHeight = 10; 
+                const buttonWidth = 46; 
+                const boxHeight = boxPadding + headingHeight + textHeight + spacing + buttonHeight + boxPadding; 
+                
+                if (y + boxHeight > 280) { doc.addPage(); y = 20; }
+                
+                doc.setFillColor(245, 245, 245);
+                doc.roundedRect(20, y, 170, boxHeight, 5, 5, 'F');
+                
+                let currentY = y + boxPadding + 4;
+                
+                doc.setTextColor(0, 0, 0);
                 doc.setFont("helvetica", "bold");
-                doc.setFontSize(16);
-                doc.text("News & Ankündigungen", 105, y, { align: "center" });
-                y += 12;
+                doc.setFontSize(14);
+                doc.text("Abwesenheiten eintragen", 105, currentY, { align: "center" });
+                currentY += 8;
                 
-                newsItems.forEach(item => {
-                    if (y > 260) { doc.addPage(); y = 20; }
-                    if (item.heading) {
-                        doc.setFont("helvetica", "bold");
-                        doc.setFontSize(13);
-                        doc.text(item.heading, margin, y);
-                        y += 6;
-                    }
-                    if (item.content) {
-                        doc.setFont("helvetica", "normal");
-                        doc.setFontSize(11);
-                        const splitNews = doc.splitTextToSize(item.content, 170);
-                        doc.text(splitNews, margin, y);
-                        y += (splitNews.length * 5) + 4;
-                    }
-                    y += 4; 
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(11);
+                splitFormText.forEach(line => {
+                    doc.text(line, 105, currentY, { align: "center" });
+                    currentY += 5;
                 });
-                y += 6; 
-            }
+                
+                const buttonY = currentY + 3; 
+                doc.setFillColor(0, 122, 255);
+                doc.roundedRect(105 - (buttonWidth / 2), buttonY, buttonWidth, buttonHeight, 3, 3, 'F'); 
+                
+                doc.setTextColor(255, 255, 255);
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(11);
+                doc.text("Zum Formular", 105, buttonY + 6.5, { align: "center" });
+                doc.link(105 - (buttonWidth / 2), buttonY, buttonWidth, buttonHeight, { url: 'https://forms.gle/nSzhoDgeAhUS4QG16' });
+                
+                doc.setTextColor(0, 0, 0); 
 
-            if(vorschauTextSaved && !vorschauTextSaved.endsWith('.')) vorschauTextSaved += ".";
-            const formText = (vorschauTextSaved ? vorschauTextSaved + " " : "") + 
-                             "Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:";
-            
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(11);
-            const splitFormText = doc.splitTextToSize(formText, 150);
-            
-            const boxPadding = 10;
-            const headingHeight = 8;
-            const textHeight = splitFormText.length * 5;
-            const spacing = 4;
-            const buttonHeight = 10; 
-            const buttonWidth = 46; 
-            const boxHeight = boxPadding + headingHeight + textHeight + spacing + buttonHeight + boxPadding; 
-            
-            if (y + boxHeight > 280) { doc.addPage(); y = 20; }
-            
-            doc.setFillColor(245, 245, 245);
-            doc.roundedRect(20, y, 170, boxHeight, 5, 5, 'F');
-            
-            let currentY = y + boxPadding + 4;
-            
-            doc.setTextColor(0, 0, 0);
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(14);
-            doc.text("Abwesenheiten eintragen", 105, currentY, { align: "center" });
-            currentY += 8;
-            
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(11);
-            splitFormText.forEach(line => {
-                doc.text(line, 105, currentY, { align: "center" });
-                currentY += 5;
-            });
-            
-            const buttonY = currentY + 3; 
-            doc.setFillColor(0, 122, 255);
-            doc.roundedRect(105 - (buttonWidth / 2), buttonY, buttonWidth, buttonHeight, 3, 3, 'F'); 
-            
-            doc.setTextColor(255, 255, 255);
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(11);
-            doc.text("Zum Formular", 105, buttonY + 6.5, { align: "center" });
-            doc.link(105 - (buttonWidth / 2), buttonY, buttonWidth, buttonHeight, { url: 'https://forms.gle/nSzhoDgeAhUS4QG16' });
-            
-            doc.setTextColor(0, 0, 0); 
+                let lastGeneratedNames = JSON.parse(localStorage.getItem('lastGeneratedNames') || "[]");
+                let serveStats = JSON.parse(localStorage.getItem('savedServeStats') || "{}");
+                
+                let currentFreq = getFrequencies(currentNamesToServe);
+                let lastFreq = getFrequencies(lastGeneratedNames);
 
-            let lastGeneratedNames = JSON.parse(localStorage.getItem('lastGeneratedNames') || "[]");
-            let serveStats = JSON.parse(localStorage.getItem('savedServeStats') || "{}");
-            
-            let currentFreq = getFrequencies(currentNamesToServe);
-            let lastFreq = getFrequencies(lastGeneratedNames);
+                for (let name in lastFreq) {
+                    serveStats[name] = (serveStats[name] || 0) - lastFreq[name];
+                    if (serveStats[name] < 0) serveStats[name] = 0; 
+                }
+                for (let name in currentFreq) {
+                    serveStats[name] = (serveStats[name] || 0) + currentFreq[name];
+                }
 
-            for (let name in lastFreq) {
-                serveStats[name] = (serveStats[name] || 0) - lastFreq[name];
-                if (serveStats[name] < 0) serveStats[name] = 0; 
-            }
-            for (let name in currentFreq) {
-                serveStats[name] = (serveStats[name] || 0) + currentFreq[name];
-            }
+                document.getElementById('serveStats').value = JSON.stringify(serveStats, null, 2);
+                localStorage.setItem('savedServeStats', JSON.stringify(serveStats));
+                localStorage.setItem('lastGeneratedNames', JSON.stringify(currentNamesToServe));
 
-            document.getElementById('serveStats').value = JSON.stringify(serveStats, null, 2);
-            localStorage.setItem('savedServeStats', JSON.stringify(serveStats));
-            localStorage.setItem('lastGeneratedNames', JSON.stringify(currentNamesToServe));
+                const pdfBlob = doc.output('blob');
+                const file = new File([pdfBlob], "Messdienerplan.pdf", { type: "application/pdf" });
 
-            const pdfBlob = doc.output('blob');
-            const file = new File([pdfBlob], "Messdienerplan.pdf", { type: "application/pdf" });
-
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                navigator.share({
-                    files: [file]
-                }).catch((error) => {
-                    console.log('Teilen abgebrochen', error);
-                });
-            } else {
-                doc.save("Messdienerplan.pdf");
-                alert("PDF heruntergeladen.");
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    navigator.share({
+                        files: [file]
+                    }).catch((error) => {
+                        console.log('Teilen abgebrochen', error);
+                    });
+                } else {
+                    doc.save("Messdienerplan.pdf");
+                    alert("PDF heruntergeladen.");
+                }
+            } catch (err) {
+                alert("Fehler beim Erstellen des PDFs! Details: " + err.message);
+                console.error("PDF Crash:", err);
             }
         }
     </script>
