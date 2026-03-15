@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v17.4</title>
+    <title>Messdienerplan v18.0</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -102,7 +102,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v17.4</span>
+            <span class="version">v18.0</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -407,26 +407,38 @@
                     });
                 }
 
-                // Strengerer Prompt für die Kurzform
-                let promptText = `Du bist ein Experte für die Erstellung fehlerfreier Messdienerpläne.
+                // Neuer, vereinfachter und schrittweiser KI-Prompt, der die KI weniger überfordert.
+                let promptText = `Du bist ein präziser Assistent für die Erstellung von Messdienerplänen. Lies das hochgeladene Dokument EXTREM GRÜNDLICH. Bei Fotos/Screenshots: Achte besonders auf abgeschnittene Ränder!
+
+                Basisdaten:
                 Gruppen: "${groupText}"
-                Einsatz-Statistik (für faire Verteilung): ${currentStats}
-                Abwesenheiten (Live aus Google Forms, als CSV formatiert): "${absencesCSV}"
+                Einsatz-Statistiken (niedrigere Zahl = wird bevorzugt eingeteilt): ${currentStats}
+                Abwesenheiten (Live aus Google Forms): "${absencesCSV}"
                 
-                STRICKTE REGELN ZUR DATENEXTRAKTION & EINTEILUNG:
-                1. Ort: Extrahiere AUSSCHLIESSLICH Termine für "Thalau". 
-                2. Erlaubte Typen: NUR "Hl. Messe", "Gottesdienst", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem". Ignoriere STRIKT alles andere (wie Rosenkranz, Andacht, Unterricht).
-                3. Diensthabende Gruppe: Bestimme anhand des Pfarrbriefs die Gruppe für den jeweiligen Zeitraum.
-                4. Werktags: 2 Personen, Sonntags: 4 Personen aus der diensthabenden Gruppe.
-                5. TAUFEN: Trage KEINE Namen ein, sondern EXAKT "Es werden 2 Freiwillige gesucht!".
-                6. HOCHZEITEN: Trage KEINE Namen ein, sondern EXAKT "Es werden 4 Freiwillige gesucht!".
-                7. ABWESENHEITEN: Wenn ein Name in der CSV in diesem Zeitraum abwesend ist, teile diese Person an den Tagen NIEMALS ein!
-                8. NOTFALLREGEL (Mangel): Wenn in der diensthabenden Gruppe durch Abwesenheiten nicht genug Personen verfügbar sind, fülle die fehlenden Plätze mit dem exakten Text auf: "1 Ersatz gesucht!" (oder "2 Ersatz gesucht!" usw.).
-                9. GERECHTIGKEIT: Bevorzuge immer Personen mit der niedrigsten Zahl in der Statistik.
-                10. VORSCHAU: Bestimme, welche Gruppe am LETZTEN im Plan genannten Sonntag eingeteilt ist. Diese Gruppe ist [X]. Die im Turnus darauffolgende Gruppe ist [Y]. Gib im Feld "text" für die Vorschau AUSSCHLIESSLICH die zwei Gruppen aus, z.B.: "Gruppe D und A" oder "Gruppe B und C" (Bilde KEINEN ganzen Satz, nutze exakt diese kurze Form!).
+                GEHE STRICKT NACH DIESEN SCHRITTEN VOR:
                 
-                GIB AUSSCHLIESSLICH EIN FLACHES JSON-ARRAY ZURÜCK!
-                Beispiel-Format:
+                SCHRITT 1: FILTERN
+                - Suche AUSSCHLIESSLICH Termine für den Ort "Thalau".
+                - Erlaubte Typen: "Hl. Messe", "Gottesdienst", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem".
+                - IGNORIERE alles andere (wie Rosenkranz, Andacht, Maiandacht, Unterricht).
+
+                SCHRITT 2: PERSONALBEDARF ERMITTELN
+                - Werktags (Mo-Sa): 2 Personen.
+                - Sonntags: 4 Personen.
+                - Ausnahmen: Bei "Taufe" brauchst du EXAKT den Text "Es werden 2 Freiwillige gesucht!" (Keine Namen). Bei "Hochzeit" EXAKT "Es werden 4 Freiwillige gesucht!".
+
+                SCHRITT 3: PERSONEN ZUTEILEN (GERECHT & FAIR)
+                - Bestimme anhand des Pfarrbriefs, welche Gruppe in der jeweiligen Woche "dran" ist.
+                - Prüfe die Abwesenheiten (CSV): Wer an diesem Datum fehlt, darf NIEMALS eingeteilt werden!
+                - Wähle aus den verbleibenden Personen der Gruppe diejenigen mit den WENIGSTEN Einsätzen (laut Statistik).
+                - NOTFALLREGEL: Wenn wegen Abwesenheiten in der Gruppe nicht genug Personen da sind, fülle die verbleibenden Plätze mit dem Text "1 Ersatz gesucht!" (bzw. 2 oder 3) auf.
+
+                SCHRITT 4: VORSCHAU GENERIEREN
+                - Finde heraus, welche Gruppe am ALLERLETZTEN Sonntag dieses Plans Dienst hat (Nennen wir sie Gruppe X).
+                - Welche Gruppe kommt danach laut normaler Reihenfolge als nächstes dran? (Nennen wir sie Gruppe Y).
+                - Gib für die Vorschau AUSSCHLIESSLICH die zwei Gruppen aus, exakt so formatiert: "Gruppe [X] und [Y]" (KEINE Sätze bilden!).
+                
+                GIB NUR EIN GÜLTIGES JSON-ARRAY ZURÜCK:
                 [
                   {"art": "woche", "text": "Gruppe B: 22.02.2026 - 28.02.2026"},
                   {"art": "gottesdienst", "wochentag": "Mittwoch", "datum": "18.02.2026", "typ": "Hl. Messe", "uhrzeit": "19.00", "messdiener": "Name 1, Name 2"},
@@ -458,7 +470,7 @@
                 document.getElementById('editorSection').classList.remove('hidden');
 
             } catch (error) {
-                statusDiv.innerHTML = `<span style='color: var(--danger); text-align: left; display: inline-block; background: #ffebee; padding: 10px; border-radius: 8px; margin-top: 10px;'>Verbindung abgebrochen oder Daten zu groß. Lade am besten Fotos/Screenshots vom Pfarrbrief hoch.</span>`;
+                statusDiv.innerHTML = `<span style='color: var(--danger); text-align: left; display: inline-block; background: #ffebee; padding: 10px; border-radius: 8px; margin-top: 10px;'>Fehler: ${error.message}. Lade am besten Fotos (Screenshots) vom Pfarrbrief hoch.</span>`;
             } finally {
                 btn.disabled = false;
             }
@@ -553,7 +565,7 @@
                     <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px;">
                         <input type="hidden" class="art-input" value="vorschau">
                         <input type="hidden" class="is-new-input" value="${item.isNew ? 'true' : 'false'}">
-                        <label style="font-size:16px; color:var(--text-main); font-weight:bold; display:block; text-align:center; margin-bottom:5px;">Gruppen Vorschau</label>
+                        <label style="font-size:16px; color:var(--text-main); font-weight:bold; display:block; text-align:center; margin-bottom:5px;">Gruppen Vorschau:</label>
                         <input type="text" class="vorschau-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:normal; text-align:center; background:transparent; border:none; font-size:15px; color: var(--primary);">
                     </div>`;
                 } else {
@@ -590,7 +602,6 @@
             `;
         }
 
-        // WICHTIG: Die Zähl-Funktion ist wieder da!
         function getFrequencies(arr) {
             let freq = {};
             arr.forEach(n => freq[n] = (freq[n] || 0) + 1);
@@ -639,27 +650,46 @@
                         continue;
                     }
 
-                    if (y > 270) { doc.addPage(); y = 20; }
-
+                    // --- UMBRUCH-LOGIK FÜR DIE WOCHE ---
+                    // Wenn wir hier schon über 225mm sind, hat weder die Woche noch 
+                    // der nächste Gottesdienst Platz. Also sofort auf die nächste Seite!
                     if (art === 'woche') {
-                        y += 4; 
-                        if (y > 270) { doc.addPage(); y = 20; }
+                        if (y > 225) { doc.addPage(); y = 20; }
+                        else { y += 4; }
+                        
                         doc.setFont("helvetica", "bold");
                         doc.setFontSize(14);
                         doc.text(item.text, 105, y, { align: "center" });
                         y += 10;
-                    } else if (art === 'gottesdienst') {
-                        const headline = `${item.wochentag} ${item.datum} ${item.typ} ${item.uhrzeit} Uhr`;
+                    } 
+                    // --- UMBRUCH-LOGIK FÜR GOTTESDIENSTE ---
+                    else if (art === 'gottesdienst') {
+                        let requiredHeight = 8; // Headline (8)
+                        let namesArray = [];
+                        if (item.messdiener && item.messdiener !== "-") {
+                            namesArray = item.messdiener.split(',').map(n => n.trim()).filter(n => n);
+                            requiredHeight += (namesArray.length > 0 ? namesArray.length * 6 : 6);
+                        } else {
+                            requiredHeight += 6;
+                        }
+                        requiredHeight += 6; // Bottom Spacing (6)
+                        
+                        // Prüfen ob die benötigte Höhe PLUS 20mm (2 cm) Rand noch auf A4 (297) passen.
+                        // 297 - 20 = 277. Wenn aktuelles y + benötigte Höhe > 277 -> neue Seite.
+                        if (y + requiredHeight > 277) {
+                            doc.addPage();
+                            y = 20;
+                        }
 
+                        const headline = `${item.wochentag} ${item.datum} ${item.typ} ${item.uhrzeit} Uhr`;
                         doc.setFont("helvetica", "bold");
                         doc.setFontSize(12);
                         doc.text(headline, margin, y);
                         y += 8;
 
                         doc.setFont("helvetica", "normal");
-                        if (item.messdiener && item.messdiener !== "-") {
-                            const names = item.messdiener.split(',').map(n => n.trim()).filter(n => n);
-                            names.forEach(name => {
+                        if (namesArray.length > 0) {
+                            namesArray.forEach(name => {
                                 doc.text(name, margin, y);
                                 y += 6;
                                 
@@ -723,16 +753,13 @@
                     y += 6; 
                 }
 
-                // --- SICHERER VORSCHAU-TEXT (Egal was die KI tut) ---
                 let formText = "";
                 let vorschauClean = vorschauTextSaved ? vorschauTextSaved.trim() : "";
                 
                 if (vorschauClean !== "") {
-                    // Falls die KI versehentlich doch schon den ganzen Satz gebaut hat:
                     if (vorschauClean.toLowerCase().includes("in den kommenden")) {
                         formText = vorschauClean + (vorschauClean.endsWith('.') ? " " : ". ") + "Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:";
                     } else {
-                        // Der gewünschte Normalfall: Wir bauen den Satz um die Kurzform!
                         formText = `In den kommenden zwei Wochen sind ${vorschauClean} dran. Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:`;
                     }
                 } else {
