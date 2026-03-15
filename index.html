@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v16.3</title>
+    <title>Messdienerplan v17.0</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -59,8 +59,13 @@
             margin-top: 4px; box-sizing: border-box;
         }
 
-        .editor-block { border-bottom: 8px solid var(--bg-color); padding-top: 0; }
-        .editor-block-title { background: #f9f9f9; padding: 8px 16px; font-weight: 600; font-size: 14px; color: var(--primary); }
+        .editor-block { border-bottom: 8px solid var(--bg-color); padding-top: 0; position: relative; }
+        .editor-block-header { display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 8px 16px; }
+        .editor-block-title { font-weight: 600; font-size: 14px; color: var(--primary); }
+        
+        .delete-btn { background: transparent; border: none; padding: 0; cursor: pointer; font-size: 16px; }
+        .delete-btn-absolute { position: absolute; right: 12px; top: 12px; z-index: 10;}
+
         .ios-list-row { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid #E5E5EA; background: #fff; }
         .ios-list-row:last-child { border-bottom: none; }
         .ios-list-row label { width: 90px; font-size: 16px; color: var(--text-main); font-weight: normal; margin: 0; }
@@ -93,7 +98,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v16.3</span>
+            <span class="version">v17.0</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -253,27 +258,27 @@
             const container = document.getElementById('editorContainer');
             if(!container || container.innerHTML.trim() === '') return; 
             
-            const count = parseInt(container.dataset.count || 0);
+            const blocks = container.querySelectorAll('.editor-block');
             const dataArray = [];
-            for (let i = 0; i < count; i++) {
-                const artElem = document.getElementById(`art_${i}`);
-                if(!artElem) continue;
-                const art = artElem.value;
+            
+            blocks.forEach(block => {
+                const art = block.querySelector('.art-input').value;
                 if (art === 'woche') {
-                    dataArray.push({ art: 'woche', text: document.getElementById(`woche_text_${i}`).value });
+                    dataArray.push({ art: 'woche', text: block.querySelector('.woche-text-input').value });
                 } else if (art === 'vorschau') {
-                    dataArray.push({ art: 'vorschau', text: document.getElementById(`vorschau_text_${i}`).value });
+                    dataArray.push({ art: 'vorschau', text: block.querySelector('.vorschau-text-input').value });
                 } else {
                     dataArray.push({
                         art: 'gottesdienst',
-                        wochentag: document.getElementById(`wochentag_${i}`).value,
-                        datum: document.getElementById(`datum_${i}`).value,
-                        typ: document.getElementById(`typ_${i}`).value,
-                        uhrzeit: document.getElementById(`uhrzeit_${i}`).value,
-                        messdiener: document.getElementById(`messdiener_${i}`).value
+                        wochentag: block.querySelector('.wochentag-input').value,
+                        datum: block.querySelector('.datum-input').value,
+                        typ: block.querySelector('.typ-input').value,
+                        uhrzeit: block.querySelector('.uhrzeit-input').value,
+                        messdiener: block.querySelector('.messdiener-input').value
                     });
                 }
-            }
+            });
+            
             localStorage.setItem('savedEditorData', JSON.stringify(dataArray));
         }
 
@@ -440,13 +445,15 @@
                     });
                 }
 
+                // NEUER PROMPT FÜR FOTOS UND NEUE VORSCHAU-LOGIK
                 let promptText = `Du bist ein Experte für die Erstellung fehlerfreier Messdienerpläne.
                 Gruppen: "${groupText}"
                 Einsatz-Statistik (für faire Verteilung): ${currentStats}
                 Abwesenheiten (Live aus Google Forms, als CSV formatiert): "${absencesCSV}"
                 
                 STRICKTE REGELN ZUR DATENEXTRAKTION & EINTEILUNG:
-                1. Ort: Extrahiere AUSSCHLIESSLICH Termine für "Thalau". Gehe das Dokument Zeile für Zeile durch und übersieh absolut keinen Termin!
+                1. Ort: Extrahiere AUSSCHLIESSLICH Termine für "Thalau". 
+                WICHTIG BEI FOTOS/SCREENSHOTS: Scanne das Bild extrem gründlich ab! Häufig werden Einträge am Rand oder bei schlechter Auflösung übersehen. Kontrolliere alle Daten und Uhrzeiten doppelt. Übersieh keine Hochzeiten, Taufen oder Beerdigungen!
                 2. Erlaubte Typen: NUR "Hl. Messe", "Gottesdienst", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem". Ignoriere STRIKT alles andere (wie Rosenkranz, Andacht, Unterricht).
                 3. Diensthabende Gruppe: Bestimme anhand des Pfarrbriefs die Gruppe für den jeweiligen Zeitraum.
                 4. Werktags: 2 Personen, Sonntags: 4 Personen aus der diensthabenden Gruppe.
@@ -455,13 +462,13 @@
                 7. ABWESENHEITEN: Wenn ein Name in der CSV in diesem Zeitraum abwesend ist, teile diese Person an den Tagen NIEMALS ein!
                 8. NOTFALLREGEL (Mangel): Wenn in der diensthabenden Gruppe durch Abwesenheiten nicht genug Personen verfügbar sind, fülle die fehlenden Plätze mit dem exakten Text auf: "1 Ersatz gesucht!" (oder "2 Ersatz gesucht!" usw.).
                 9. GERECHTIGKEIT: Bevorzuge immer Personen mit der niedrigsten Zahl in der Statistik.
-                10. VORSCHAU: Ermittle logisch aus der Reihenfolge der Gruppen, welche Gruppen in den ZWEI WOCHEN NACH diesem Plan turnusmäßig an der Reihe sein werden. Schreibe EXAKT diesen Satz: "In den kommenden zwei Wochen sind Gruppe [X] und [Y] dran."
+                10. VORSCHAU: Bestimme, welche Gruppe am LETZTEN im Plan genannten Sonntag eingeteilt ist. Diese Gruppe ist [X]. Die im Turnus darauffolgende Gruppe ist [Y]. Schreibe EXAKT diesen Satz: "In den kommenden zwei Wochen sind Gruppe [X] und [Y] dran."
                 
                 GIB AUSSCHLIESSLICH EIN FLACHES JSON-ARRAY ZURÜCK!
                 Beispiel-Format:
                 [
                   {"art": "woche", "text": "Gruppe B: 22.02.2026 - 28.02.2026"},
-                  {"art": "gottesdienst", "wochentag": "Mittwoch", "datum": "18.02.2026", "typ": "Hl. Messe", "uhrzeit": "19.00", "messdiener": "Name 1, Name 2, 2 Ersatz gesucht!"},
+                  {"art": "gottesdienst", "wochentag": "Mittwoch", "datum": "18.02.2026", "typ": "Hl. Messe", "uhrzeit": "19.00", "messdiener": "Name 1, Name 2"},
                   {"art": "vorschau", "text": "In den kommenden zwei Wochen sind Gruppe C und D dran."}
                 ]`;
 
@@ -479,6 +486,7 @@
                 const data = await response.json();
                 if(data.error) throw new Error(data.error.message);
 
+                // Daten erfolgreich! Jetzt erst löschen wir den alten Editor.
                 localStorage.removeItem('savedEditorData');
                 localStorage.removeItem('lastGeneratedNames');
 
@@ -500,37 +508,69 @@
             }
         }
 
+        // Neue Funktion um per Button leere Blöcke hinzuzufügen
+        function addBlock(type) {
+            saveEditorState();
+            let dataArray = JSON.parse(localStorage.getItem('savedEditorData') || "[]");
+            
+            if (type === 'gottesdienst') {
+                dataArray.push({art: 'gottesdienst', wochentag: '', datum: '', typ: 'Hl. Messe', uhrzeit: '', messdiener: ''});
+            } else if (type === 'woche') {
+                dataArray.push({art: 'woche', text: 'Neue Woche'});
+            } else if (type === 'vorschau') {
+                dataArray.push({art: 'vorschau', text: 'In den kommenden zwei Wochen sind Gruppe X und Y dran.'});
+            }
+            
+            renderEditor(dataArray);
+            saveEditorState();
+        }
+
         function renderEditor(dataArray) {
             const container = document.getElementById('editorContainer');
             container.innerHTML = ''; 
-            dataArray.forEach((item, index) => {
+            
+            // Render Blöcke
+            dataArray.forEach((item) => {
                 if (item.art === 'woche') {
                     container.innerHTML += `
-                    <div class="card editor-block" style="background: #E5E5EA; padding: 12px; margin-top: 10px;">
-                        <input type="hidden" id="art_${index}" value="woche">
-                        <input type="text" id="woche_text_${index}" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:600; text-align:center; background:transparent; border:none; font-size:16px;">
+                    <div class="card editor-block" style="background: #E5E5EA; padding: 12px; margin-top: 10px; position:relative;">
+                        <button class="delete-btn delete-btn-absolute" onclick="this.closest('.editor-block').remove(); saveEditorState();" title="Löschen">🗑️</button>
+                        <input type="hidden" class="art-input" value="woche">
+                        <input type="text" class="woche-text-input" value="${item.text}" oninput="saveEditorState()" style="width:90%; font-weight:600; text-align:center; background:transparent; border:none; font-size:16px;">
                     </div>`;
                 } else if (item.art === 'vorschau') {
                     container.innerHTML += `
-                    <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px;">
-                        <input type="hidden" id="art_${index}" value="vorschau">
-                        <label style="font-size:12px; color:var(--primary); font-weight:bold; display:block; text-align:center; margin-bottom:5px;">Erkannter Vorschau-Text (Wird unten in grauer Box eingefügt)</label>
-                        <input type="text" id="vorschau_text_${index}" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:normal; text-align:center; background:transparent; border:none; font-size:14px; color: var(--primary);">
+                    <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px; position:relative;">
+                        <button class="delete-btn delete-btn-absolute" onclick="this.closest('.editor-block').remove(); saveEditorState();" title="Löschen">🗑️</button>
+                        <input type="hidden" class="art-input" value="vorschau">
+                        <label style="font-size:12px; color:var(--primary); font-weight:bold; display:block; text-align:center; margin-bottom:5px;">Erkannter Vorschau-Text</label>
+                        <input type="text" class="vorschau-text-input" value="${item.text}" oninput="saveEditorState()" style="width:90%; font-weight:normal; text-align:center; background:transparent; border:none; font-size:14px; color: var(--primary);">
                     </div>`;
                 } else {
                     container.innerHTML += `
                     <div class="card editor-block" style="margin-top: 10px;">
-                        <input type="hidden" id="art_${index}" value="gottesdienst">
-                        <div class="editor-block-title">Gottesdienst</div>
-                        <div class="ios-list-row"><label>Tag</label><input type="text" id="wochentag_${index}" value="${item.wochentag || ''}" oninput="saveEditorState()" placeholder="z.B. Mittwoch"></div>
-                        <div class="ios-list-row"><label>Datum</label><input type="text" id="datum_${index}" value="${item.datum || ''}" oninput="saveEditorState()" placeholder="TT.MM.JJJJ"></div>
-                        <div class="ios-list-row"><label>Typ</label><input type="text" id="typ_${index}" value="${item.typ || 'Hl. Messe'}" oninput="saveEditorState()" placeholder="z.B. Hl. Messe"></div>
-                        <div class="ios-list-row"><label>Uhrzeit</label><input type="text" id="uhrzeit_${index}" value="${item.uhrzeit || ''}" oninput="saveEditorState()" placeholder="HH:MM"></div>
-                        <div class="ios-list-row"><label>Eingeteilte</label><input type="text" id="messdiener_${index}" value="${item.messdiener || ''}" oninput="saveEditorState()" placeholder="-"></div>
+                        <input type="hidden" class="art-input" value="gottesdienst">
+                        <div class="editor-block-header">
+                            <span class="editor-block-title">Gottesdienst</span>
+                            <button class="delete-btn" onclick="this.closest('.editor-block').remove(); saveEditorState();" title="Löschen">🗑️</button>
+                        </div>
+                        <div class="ios-list-row"><label>Tag</label><input type="text" class="wochentag-input" value="${item.wochentag || ''}" oninput="saveEditorState()" placeholder="z.B. Mittwoch"></div>
+                        <div class="ios-list-row"><label>Datum</label><input type="text" class="datum-input" value="${item.datum || ''}" oninput="saveEditorState()" placeholder="TT.MM.JJJJ"></div>
+                        <div class="ios-list-row"><label>Typ</label><input type="text" class="typ-input" value="${item.typ || 'Hl. Messe'}" oninput="saveEditorState()" placeholder="z.B. Hl. Messe"></div>
+                        <div class="ios-list-row"><label>Uhrzeit</label><input type="text" class="uhrzeit-input" value="${item.uhrzeit || ''}" oninput="saveEditorState()" placeholder="HH:MM"></div>
+                        <div class="ios-list-row"><label>Eingeteilte</label><input type="text" class="messdiener-input" value="${item.messdiener || ''}" oninput="saveEditorState()" placeholder="-"></div>
                     </div>`;
                 }
             });
-            container.dataset.count = dataArray.length;
+            
+            // Füge die Hinzufügen-Buttons ganz unten an
+            container.innerHTML += `
+                <div style="display:flex; gap:8px; margin-top:16px; padding: 0 4px; padding-bottom:10px;">
+                    <button class="btn-secondary" style="flex:1; font-size:13px; margin-top:0;" onclick="addBlock('gottesdienst')">+ Gottesdienst</button>
+                    <button class="btn-secondary" style="flex:1; font-size:13px; margin-top:0;" onclick="addBlock('woche')">+ Woche</button>
+                    <button class="btn-secondary" style="flex:1; font-size:13px; margin-top:0;" onclick="addBlock('vorschau')">+ Vorschau</button>
+                </div>
+            `;
         }
 
         function getFrequencies(arr) {
@@ -540,6 +580,9 @@
         }
 
         async function generatePDF() {
+            // Speichere den aktuellen Stand, bevor wir PDF generieren
+            saveEditorState();
+            
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             let y = 15;
@@ -558,37 +601,32 @@
             doc.text("Einteilung der Messdiener/innen", 105, y, { align: "center" });
             y += 16; 
 
-            const count = parseInt(document.getElementById('editorContainer').dataset.count || 0);
+            // Wir lesen nun direkt den JSON Array aus, das ist sicherer als DOM-IDs!
+            const editorData = JSON.parse(localStorage.getItem('savedEditorData') || "[]");
             
             let currentNamesToServe = [];
             let vorschauTextSaved = "";
 
-            for(let i = 0; i < count; i++) {
-                const art = document.getElementById(`art_${i}`).value;
+            for(let i = 0; i < editorData.length; i++) {
+                const item = editorData[i];
+                const art = item.art;
 
                 if (art === 'vorschau') {
-                    vorschauTextSaved = document.getElementById(`vorschau_text_${i}`).value;
+                    vorschauTextSaved = item.text;
                     continue;
                 }
 
                 if (y > 270) { doc.addPage(); y = 20; }
 
                 if (art === 'woche') {
-                    const text = document.getElementById(`woche_text_${i}`).value;
                     y += 4; 
                     if (y > 270) { doc.addPage(); y = 20; }
                     doc.setFont("helvetica", "bold");
                     doc.setFontSize(14);
-                    doc.text(text, 105, y, { align: "center" });
+                    doc.text(item.text, 105, y, { align: "center" });
                     y += 10;
-                } else {
-                    const wochentag = document.getElementById(`wochentag_${i}`).value;
-                    const datum = document.getElementById(`datum_${i}`).value;
-                    const typ = document.getElementById(`typ_${i}`).value;
-                    const uhrzeit = document.getElementById(`uhrzeit_${i}`).value;
-                    let messdienerStr = document.getElementById(`messdiener_${i}`).value || "";
-
-                    const headline = `${wochentag} ${datum} ${typ} ${uhrzeit} Uhr`;
+                } else if (art === 'gottesdienst') {
+                    const headline = `${item.wochentag} ${item.datum} ${item.typ} ${item.uhrzeit} Uhr`;
 
                     doc.setFont("helvetica", "bold");
                     doc.setFontSize(12);
@@ -596,8 +634,8 @@
                     y += 8;
 
                     doc.setFont("helvetica", "normal");
-                    if (messdienerStr && messdienerStr !== "-") {
-                        const names = messdienerStr.split(',').map(n => n.trim()).filter(n => n);
+                    if (item.messdiener && item.messdiener !== "-") {
+                        const names = item.messdiener.split(',').map(n => n.trim()).filter(n => n);
                         names.forEach(name => {
                             doc.text(name, margin, y);
                             y += 6;
@@ -611,18 +649,18 @@
                         doc.text("-", margin, y);
                         y += 6;
                     }
-                    y += 6; // Standardabstand nach jedem Gottesdienst
+                    y += 6; 
                 }
             }
 
             // --- NEUER HINWEISSATZ ---
-            y += 4; // Ein extra Puffer, damit es harmonisch vom letzten Gottesdienst abgesetzt ist
+            y += 4; 
             if (y > 275) { doc.addPage(); y = 20; }
             doc.setFont("helvetica", "bold");
             doc.setFontSize(12);
             doc.setTextColor(0, 0, 0); 
             doc.text("Wer eingeteilt ist und nicht dienen kann, sucht sich bitte selbstständig eine Vertretung!", 105, y, { align: "center" });
-            y += 22; // DEUTLICH vergrößerter Abstand zum nächsten Bereich (News)
+            y += 22; 
 
 
             // --- News Sektion ---
@@ -662,7 +700,7 @@
                     }
                     y += 4; 
                 });
-                y += 6; // Puffer nach den News
+                y += 6; 
             }
 
             // --- Graue Abwesenheits- & Formular-Box ---
