@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v17.3</title>
+    <title>Messdienerplan v17.4</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -102,7 +102,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v17.3</span>
+            <span class="version">v17.4</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -407,7 +407,7 @@
                     });
                 }
 
-                // Angepasster Prompt für kurze "Gruppe X und Y" Ausgabe
+                // Strengerer Prompt für die Kurzform
                 let promptText = `Du bist ein Experte für die Erstellung fehlerfreier Messdienerpläne.
                 Gruppen: "${groupText}"
                 Einsatz-Statistik (für faire Verteilung): ${currentStats}
@@ -415,7 +415,6 @@
                 
                 STRICKTE REGELN ZUR DATENEXTRAKTION & EINTEILUNG:
                 1. Ort: Extrahiere AUSSCHLIESSLICH Termine für "Thalau". 
-                WICHTIG BEI FOTOS/SCREENSHOTS: Scanne das Bild extrem gründlich ab! Häufig werden Einträge am Rand oder bei schlechter Auflösung übersehen. Kontrolliere alle Daten und Uhrzeiten doppelt. Übersieh keine Hochzeiten, Taufen oder Beerdigungen!
                 2. Erlaubte Typen: NUR "Hl. Messe", "Gottesdienst", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem". Ignoriere STRIKT alles andere (wie Rosenkranz, Andacht, Unterricht).
                 3. Diensthabende Gruppe: Bestimme anhand des Pfarrbriefs die Gruppe für den jeweiligen Zeitraum.
                 4. Werktags: 2 Personen, Sonntags: 4 Personen aus der diensthabenden Gruppe.
@@ -424,7 +423,7 @@
                 7. ABWESENHEITEN: Wenn ein Name in der CSV in diesem Zeitraum abwesend ist, teile diese Person an den Tagen NIEMALS ein!
                 8. NOTFALLREGEL (Mangel): Wenn in der diensthabenden Gruppe durch Abwesenheiten nicht genug Personen verfügbar sind, fülle die fehlenden Plätze mit dem exakten Text auf: "1 Ersatz gesucht!" (oder "2 Ersatz gesucht!" usw.).
                 9. GERECHTIGKEIT: Bevorzuge immer Personen mit der niedrigsten Zahl in der Statistik.
-                10. VORSCHAU: Bestimme, welche Gruppe am LETZTEN im Plan genannten Sonntag eingeteilt ist. Diese Gruppe ist [X]. Die im Turnus darauffolgende Gruppe ist [Y]. Gib im Feld "text" für die Vorschau AUSSCHLIESSLICH die zwei Gruppen aus, z.B.: "Gruppe D und A" oder "Gruppe B und C" (KEINEN ganzen Satz!).
+                10. VORSCHAU: Bestimme, welche Gruppe am LETZTEN im Plan genannten Sonntag eingeteilt ist. Diese Gruppe ist [X]. Die im Turnus darauffolgende Gruppe ist [Y]. Gib im Feld "text" für die Vorschau AUSSCHLIESSLICH die zwei Gruppen aus, z.B.: "Gruppe D und A" oder "Gruppe B und C" (Bilde KEINEN ganzen Satz, nutze exakt diese kurze Form!).
                 
                 GIB AUSSCHLIESSLICH EIN FLACHES JSON-ARRAY ZURÜCK!
                 Beispiel-Format:
@@ -465,7 +464,6 @@
             }
         }
 
-        // Intelligentes chronologisches Sortieren
         function getSortKey(item, originalIndex) {
             if (item.art === 'vorschau') return "999999999999_" + String(originalIndex).padStart(4, '0');
             
@@ -555,8 +553,8 @@
                     <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px;">
                         <input type="hidden" class="art-input" value="vorschau">
                         <input type="hidden" class="is-new-input" value="${item.isNew ? 'true' : 'false'}">
-                        <label style="font-size:12px; color:var(--primary); font-weight:bold; display:block; text-align:center; margin-bottom:5px;">Gruppen Vorschau:</label>
-                        <input type="text" class="vorschau-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:bold; text-align:center; background:transparent; border:none; font-size:16px; color: var(--primary);">
+                        <label style="font-size:16px; color:var(--text-main); font-weight:bold; display:block; text-align:center; margin-bottom:5px;">Gruppen Vorschau</label>
+                        <input type="text" class="vorschau-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:normal; text-align:center; background:transparent; border:none; font-size:15px; color: var(--primary);">
                     </div>`;
                 } else {
                     container.innerHTML += `
@@ -592,6 +590,13 @@
             `;
         }
 
+        // WICHTIG: Die Zähl-Funktion ist wieder da!
+        function getFrequencies(arr) {
+            let freq = {};
+            arr.forEach(n => freq[n] = (freq[n] || 0) + 1);
+            return freq;
+        }
+
         async function generatePDF() {
             try {
                 saveEditorState();
@@ -609,7 +614,7 @@
                         y += 48; 
                     } catch(imgErr) {
                         console.error("Logo Fehler:", imgErr);
-                        y += 15; // Fallback, wenn das Bild kaputt ist
+                        y += 15; 
                     }
                 } else {
                     y += 15;
@@ -718,10 +723,18 @@
                     y += 6; 
                 }
 
-                // --- VORSCHAU SATZ GENERIEREN ---
+                // --- SICHERER VORSCHAU-TEXT (Egal was die KI tut) ---
                 let formText = "";
-                if(vorschauTextSaved && vorschauTextSaved.trim() !== "") {
-                    formText = `In den kommenden zwei Wochen sind ${vorschauTextSaved} dran. Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:`;
+                let vorschauClean = vorschauTextSaved ? vorschauTextSaved.trim() : "";
+                
+                if (vorschauClean !== "") {
+                    // Falls die KI versehentlich doch schon den ganzen Satz gebaut hat:
+                    if (vorschauClean.toLowerCase().includes("in den kommenden")) {
+                        formText = vorschauClean + (vorschauClean.endsWith('.') ? " " : ". ") + "Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:";
+                    } else {
+                        // Der gewünschte Normalfall: Wir bauen den Satz um die Kurzform!
+                        formText = `In den kommenden zwei Wochen sind ${vorschauClean} dran. Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:`;
+                    }
                 } else {
                     formText = "Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:";
                 }
