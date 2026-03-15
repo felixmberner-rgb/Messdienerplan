@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v18.0</title>
+    <title>Messdienerplan v18.1</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -102,7 +102,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v18.0</span>
+            <span class="version">v18.1</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -327,6 +327,47 @@
             }
         }
 
+        async function extractGroups() {
+            const apiKey = document.getElementById('apiKey').value;
+            const fileInput = document.getElementById('gruppenPlanFile');
+            const statusDiv = document.getElementById('extractStatus');
+            const btn = document.getElementById('btnExtract');
+
+            if(!apiKey) return alert("Bitte API-Schlüssel eingeben.");
+            if(fileInput.files.length === 0) return alert("Datei hochladen.");
+
+            btn.disabled = true;
+            statusDiv.innerText = "Lese Dokument... ⏳";
+
+            try {
+                const fileData = await readFileAsBase64(fileInput.files[0]);
+                const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ 
+                            parts: [
+                                { text: "Schreibe die gesamte Gruppeneinteilung (Welche Gruppe hat welche Mitglieder) aus diesem Dokument als übersichtlichen Text heraus." },
+                                { inlineData: { mimeType: fileData.mimeType, data: fileData.data } }
+                            ] 
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+                if(data.error) throw new Error(data.error.message);
+
+                document.getElementById('groupText').value = data.candidates[0].content.parts[0].text;
+                document.querySelector('details').open = true;
+                statusDiv.innerText = "Erfolgreich ausgelesen!";
+            } catch(e) {
+                statusDiv.innerText = "Fehler beim Auslesen.";
+                alert(e.message);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
         async function saveSettings() {
             const apiKey = document.getElementById('apiKey').value;
             const logoInput = document.getElementById('logoFile');
@@ -384,7 +425,7 @@
             if(sheetsLink) {
                 statusDiv.innerHTML = "Lade Abwesenheiten aus Google Sheets... ⏳";
                 try {
-                    if(sheetsLink.includes("/edit?usp=sharing")) throw new Error("Falscher Tabellen-Link");
+                    if(sheetsLink.includes("/edit?usp=sharing")) throw new Error("Falscher Tabellen-Link (CORS Fehler)");
                     const res = await fetch(sheetsLink);
                     if(!res.ok) throw new Error("Netzwerkfehler");
                     absencesCSV = await res.text();
@@ -407,7 +448,7 @@
                     });
                 }
 
-                // Neuer, vereinfachter und schrittweiser KI-Prompt, der die KI weniger überfordert.
+                // Extremer Anti-Schmalnau Prompt
                 let promptText = `Du bist ein präziser Assistent für die Erstellung von Messdienerplänen. Lies das hochgeladene Dokument EXTREM GRÜNDLICH. Bei Fotos/Screenshots: Achte besonders auf abgeschnittene Ränder!
 
                 Basisdaten:
@@ -417,9 +458,10 @@
                 
                 GEHE STRICKT NACH DIESEN SCHRITTEN VOR:
                 
-                SCHRITT 1: FILTERN
+                SCHRITT 1: FILTERN NACH ORT (ABSOLUTE PRIORITÄT)
                 - Suche AUSSCHLIESSLICH Termine für den Ort "Thalau".
-                - Erlaubte Typen: "Hl. Messe", "Gottesdienst", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem".
+                - Termine für "Schmalnau" oder JEDEN anderen Ort dürfen UNTER KEINEN UMSTÄNDEN übernommen werden! Ignoriere sie komplett! Das ist extrem wichtig!
+                - Erlaubte Typen für Thalau: "Hl. Messe", "Gottesdienst", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem".
                 - IGNORIERE alles andere (wie Rosenkranz, Andacht, Maiandacht, Unterricht).
 
                 SCHRITT 2: PERSONALBEDARF ERMITTELN
@@ -561,12 +603,13 @@
                         <input type="text" class="woche-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:600; text-align:center; background:transparent; border:none; font-size:16px;">
                     </div>`;
                 } else if (item.art === 'vorschau') {
+                    // Flexbox zur perfekten Zentrierung von Überschrift und Text
                     container.innerHTML += `
-                    <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px;">
+                    <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px; display: flex; flex-direction: column; align-items: center;">
                         <input type="hidden" class="art-input" value="vorschau">
                         <input type="hidden" class="is-new-input" value="${item.isNew ? 'true' : 'false'}">
-                        <label style="font-size:16px; color:var(--text-main); font-weight:bold; display:block; text-align:center; margin-bottom:5px;">Gruppen Vorschau:</label>
-                        <input type="text" class="vorschau-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:normal; text-align:center; background:transparent; border:none; font-size:15px; color: var(--primary);">
+                        <label style="font-size:16px; color:var(--text-main); font-weight:bold; display:block; text-align:center; margin-bottom:5px; width: 100%;">Gruppen Vorschau:</label>
+                        <input type="text" class="vorschau-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:normal; text-align:center; background:transparent; border:none; font-size:15px; color: var(--primary); padding:0; margin:0;">
                     </div>`;
                 } else {
                     container.innerHTML += `
@@ -589,7 +632,7 @@
                         <div class="ios-list-row"><label>Typ</label><input type="text" class="typ-input" value="${item.typ || 'Hl. Messe'}" oninput="saveEditorState()" placeholder="z.B. Hl. Messe"></div>
                         <div class="ios-list-row"><label>Uhrzeit</label><input type="text" class="uhrzeit-input" value="${item.uhrzeit || ''}" oninput="saveEditorState()" placeholder="HH:MM"></div>
                         <div class="ios-list-row"><label>Eingeteilte</label><input type="text" class="messdiener-input" value="${item.messdiener || ''}" oninput="saveEditorState()" placeholder="-"></div>
-                        ${item.isNew ? `<div style="padding: 12px 16px;"><button style="background-color: var(--success); margin-top: 0;" onclick="saveAndSortGottesdienst()">💾 Speichern & Einsortieren</button></div>` : ''}
+                        ${item.isNew ? `<div style="padding: 12px 16px;"><button style="background-color: var(--success); margin-top: 0;" onclick="saveAndSortGottesdienst()">Speichern & Einsortieren</button></div>` : ''}
                     </div>`;
                 }
             });
@@ -650,9 +693,6 @@
                         continue;
                     }
 
-                    // --- UMBRUCH-LOGIK FÜR DIE WOCHE ---
-                    // Wenn wir hier schon über 225mm sind, hat weder die Woche noch 
-                    // der nächste Gottesdienst Platz. Also sofort auf die nächste Seite!
                     if (art === 'woche') {
                         if (y > 225) { doc.addPage(); y = 20; }
                         else { y += 4; }
@@ -662,9 +702,8 @@
                         doc.text(item.text, 105, y, { align: "center" });
                         y += 10;
                     } 
-                    // --- UMBRUCH-LOGIK FÜR GOTTESDIENSTE ---
                     else if (art === 'gottesdienst') {
-                        let requiredHeight = 8; // Headline (8)
+                        let requiredHeight = 8; 
                         let namesArray = [];
                         if (item.messdiener && item.messdiener !== "-") {
                             namesArray = item.messdiener.split(',').map(n => n.trim()).filter(n => n);
@@ -672,10 +711,8 @@
                         } else {
                             requiredHeight += 6;
                         }
-                        requiredHeight += 6; // Bottom Spacing (6)
+                        requiredHeight += 6; 
                         
-                        // Prüfen ob die benötigte Höhe PLUS 20mm (2 cm) Rand noch auf A4 (297) passen.
-                        // 297 - 20 = 277. Wenn aktuelles y + benötigte Höhe > 277 -> neue Seite.
                         if (y + requiredHeight > 277) {
                             doc.addPage();
                             y = 20;
