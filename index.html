@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v22.0</title>
+    <title>Messdienerplan v22.1</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -102,7 +102,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v22.0</span>
+            <span class="version">v22.1</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -463,48 +463,45 @@
                     });
                 }
 
-                // PERFEKTER UND STRENGER KI PROMPT FÜR MINIMALE FEHLERQUOTE
-                let promptText = `Du bist ein hochpräziser Assistent für die Erstellung von Messdienerplänen. Lies die hochgeladenen Dokumente/Fotos EXTREM GRÜNDLICH.
+                // DER PERFEKTE KI PROMPT (Struktur, Klarheit, Sicherheit)
+                let promptText = `Du bist ein hochpräziser Assistent für die Erstellung von Messdienerplänen. Lies die Dokumente/Fotos EXTREM GRÜNDLICH.
 
                 BASISDATEN:
                 - Gruppen: "${groupText}"
-                - Statistik (niedrige Zahl = bevorzugt einteilen): ${currentStats}
-                - Abwesenheiten (Urlaub/Krank): "${absencesCSV}"
+                - Statistik (niedrige Zahl = bevorzugt einteilen): ${currentStats} (Ignoriere den Zusatz "(neu)" bei der Zahlenwertung)
+                - Abwesenheiten: "${absencesCSV}"
                 - Immer zusammen: "${alwaysTogether}"
                 - Nie zusammen: "${neverTogether}"
                 
-                WISSEN FÜR UNSCHARFE FOTOS (Plausibilitätsprüfung):
+                RHYTHMUS IN THALAU (Zur Korrektur unscharfer Bilder):
                 - Di, Do, Fr: Meist 18:00 (Winter) oder 19:00 (Sommer).
                 - Sa: Meist 17:00 oder 18:00.
                 - So: Meist 09:00 oder 10:30.
-                (Dies ist nur ein Richtwert für schwer leserliche Bilder. Vertraue immer primär dem gedruckten Text, z.B. bei Feiertagen!)
+                (Vertraue aber immer primär dem gedruckten Text, besonders an Feiertagen!)
 
                 SCHRITT-FÜR-SCHRITT ANWEISUNGEN:
                 
-                SCHRITT 1: ORTS-FILTER (ABSOLUT KRITISCH)
-                - Extrahiere AUSSCHLIESSLICH Termine für den Ort "Thalau".
-                - Termine für "Schmalnau" (oder andere Orte) MÜSSEN komplett ignoriert werden!
+                SCHRITT 1: STRENGER ORTS-FILTER (NUR THALAU!)
+                - Du suchst im Pfarrbrief nach Gottesdiensten.
+                - Prüfe bei JEDEM erkannten Termin den Ort!
+                - Übernimm AUSSCHLIESSLICH Gottesdienste, die in "Thalau" stattfinden.
+                - Wenn dort "Schmalnau" (oder ein anderer Ort) steht, ÜBERSPRINGE DIESEN TERMIN KOMPLETT! Er darf unter keinen Umständen im Plan auftauchen!
                 - Erlaubte Typen: "Hl. Messe", "Gottesdienst", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem". (Keine Andachten).
 
-                SCHRITT 2: BEDARF
-                - Werktags (Mo-Sa): 2 Personen.
-                - Sonntags: 4 Personen.
-                - Taufe: Immer "Es werden 2 Freiwillige gesucht!" eintragen.
-                - Hochzeit: Immer "Es werden 4 Freiwillige gesucht!" eintragen.
+                SCHRITT 2: BEDARF & EINTEILUNG
+                - Werktags (Mo-Sa): 2 Personen. Sonntags: 4 Personen. (Ausnahmen: Taufe -> "Es werden 2 Freiwillige gesucht!", Hochzeit -> "Es werden 4 Freiwillige gesucht!").
+                - Bestimme die diensthabende Gruppe anhand der Überschriften.
+                - Prüfe Abwesenheiten: Niemanden einteilen, der laut CSV an dem Tag fehlt!
+                - "(neu)" REGEL: Anfänger (haben "(neu)" hinter dem Namen) dürfen NIE allein dienen. Werktags: max. 1 Anfänger. Sonntags: max. 2 Anfänger. Es muss immer ein Erfahrener (ohne "(neu)") dabei sein.
+                - GERECHTIGKEIT: Nimm die Personen mit der kleinsten Zahl in der Statistik. Herrscht Gleichstand, mische zufällig durch (sorge für Abwechslung!).
+                - MANGEL: Wenn zu wenige Personal verfügbar ist, fülle mit "1 Ersatz gesucht!" auf.
 
-                SCHRITT 3: ZUTEILUNG & REGELN
-                - Bestimme die korrekte Gruppe anhand der Überschriften im Pfarrbrief.
-                - WER IN DER CSV ALS ABWESEND STEHT, DARF AN DIESEM TAG NICHT EINGETEILT WERDEN!
-                - GERECHTIGKEIT: Nimm die Personen mit der kleinsten Zahl in der Statistik. Herrscht Gleichstand, Mische sie ZUFÄLLIG durch (Abwechslung!).
-                - "(neu)" REGEL: Anfänger haben ein "(neu)" hinter dem Namen. Sie dürfen NIE allein dienen! Werktags: max. 1x "(neu)". Sonntags: max. 2x "(neu)". Es muss zwingend mindestens ein Erfahrener dabei sein.
-                - MANGEL: Wenn wegen Abwesenheiten zu wenig Personal da ist, trage "1 Ersatz gesucht!" (oder "2 Ersatz gesucht!") ein.
-
-                SCHRITT 4: VORSCHAU
-                - Wer ist am ALLERLETZTEN Sonntag dieses Plans dran? (Das ist Gruppe X).
-                - Wer folgt laut Turnus als nächstes? (Das ist Gruppe Y).
-                - Schreibe in das Vorschau-Textfeld NUR die Namen der Gruppen (z.B. "Gruppe A und B"). KEINE ganzen Sätze!
-
-                GIB AUSSCHLIESSLICH EIN GÜLTIGES JSON-ARRAY ZURÜCK:
+                SCHRITT 3: VORSCHAU
+                - Welche Gruppe ist am LETZTEN Sonntag dieses Plans dran? (Das ist Gruppe X).
+                - Welche Gruppe folgt laut normaler Reihenfolge danach? (Das ist Gruppe Y).
+                - Schreibe in das "text" Feld AUSSCHLIESSLICH die zwei Gruppen, z.B.: "Gruppe X und Y". Bilde KEINE ganzen Sätze!
+                
+                GIB NUR EIN GÜLTIGES JSON-ARRAY ZURÜCK:
                 [
                   {"art": "woche", "text": "Gruppe B: 22.02.2026 - 28.02.2026"},
                   {"art": "gottesdienst", "wochentag": "Mittwoch", "datum": "18.02.2026", "typ": "Hl. Messe", "uhrzeit": "19.00", "messdiener": "Name 1, Name 2 (neu)"},
@@ -633,11 +630,11 @@
                     </div>`;
                 } else if (item.art === 'vorschau') {
                     container.innerHTML += `
-                    <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px; display: flex; flex-direction: column; align-items: center;">
+                    <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px;">
                         <input type="hidden" class="art-input" value="vorschau">
                         <input type="hidden" class="is-new-input" value="${item.isNew ? 'true' : 'false'}">
-                        <label style="font-size:18px; color:#000; font-weight:bold; display:block; text-align:center; margin-bottom:5px; width: 100%;">Gruppen Vorschau:</label>
-                        <input type="text" class="vorschau-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:normal; text-align:center; background:transparent; border:none; font-size:16px; color: var(--primary); padding:0; margin:0;">
+                        <label style="font-size:18px; color:var(--text-main); font-weight:bold; text-align:center; margin-bottom:8px; width: 100%; display: block;">Gruppen Vorschau:</label>
+                        <input type="text" class="vorschau-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; display:block; font-weight:normal; text-align:center; background:transparent; border:none; font-size:16px; color: var(--primary); padding:0; margin:0 auto;">
                     </div>`;
                 } else {
                     container.innerHTML += `
@@ -725,10 +722,6 @@
                         continue;
                     }
 
-                    // PERFEKTE UMBRUCH-LOGIK FÜR DIE WOCHE
-                    // 297mm Blatt - 20mm Rand unten = 277mm nutzbar.
-                    // Woche = 14mm. Gottesdienst = ca. 32-44mm. Zusammen ca. 55mm.
-                    // Wenn y > 222 (277 - 55 = 222), dann passt es nicht mehr komplett!
                     if (art === 'woche') {
                         if (y > 222) { doc.addPage(); y = 20; }
                         else { y += 4; }
