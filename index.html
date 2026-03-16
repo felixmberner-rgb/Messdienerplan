@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v20.1</title>
+    <title>Messdienerplan v21.0</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -102,7 +102,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v20.1</span>
+            <span class="version">v21.0</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -359,13 +359,14 @@
                 document.getElementById('editorSection').classList.remove('hidden');
             }
 
+            // Lade News wiederherstellen
             const savedNews = JSON.parse(localStorage.getItem('savedNewsData') || "[]");
             if (savedNews.length > 0) {
                 savedNews.forEach(item => {
                     addNewsItem(item.heading, item.content);
                 });
             } else {
-                addNewsItem();
+                addNewsItem(); 
             }
         };
 
@@ -464,6 +465,7 @@
                     });
                 }
 
+                // KI PROMPT mit Wissen zu Sommer-/Winterzeit und Wochentagen!
                 let promptText = `Du bist ein präziser Assistent für die Erstellung von Messdienerplänen. Lies das hochgeladene Dokument EXTREM GRÜNDLICH.
 
                 Basisdaten:
@@ -473,11 +475,12 @@
                 Immer zusammen einteilen: "${alwaysTogether}"
                 Nie zusammen einteilen: "${neverTogether}"
                 
-                HILFREICHE INFO ZUM TYPISCHEN RHYTHMUS IN THALAU (Zur OCR-Korrektur bei Fotos):
-                - Jede Woche: Sonntag, Dienstag, Donnerstag.
-                - Ca. 1x im Monat: Freitag.
-                - Alle 2 Wochen: Samstag.
-                - Dazu kommen Beerdigungen, Taufen, Hochzeiten.
+                HILFREICHE INFO ZUM TYPISCHEN RHYTHMUS IN THALAU (Zur OCR-Korrektur bei unscharfen Fotos):
+                - Wochentage (Dienstag, Donnerstag, Freitag): In der Winterzeit meist 18:00 Uhr, Sommerzeit meist 19:00 Uhr.
+                - Samstags (alle 2 Wochen): In der Winterzeit meist 17:00 Uhr, Sommerzeit meist 18:00 Uhr.
+                - Sonntags: Die Uhrzeit wechselt idR. zwischen 09:00 Uhr und 10:30 Uhr.
+                - Ausnahmen: Beerdigungen, Taufen, Hochzeiten und Feiertage weichen von diesen Regeln ab.
+                ACHTUNG WICHTIG: Vertraue IMMER zuerst dem Text auf dem Bild! Nutze dieses Wissen nur als Plausibilitätsprüfung, falls Zahlen verschwommen oder schlecht lesbar sind.
 
                 GEHE STRICKT NACH DIESEN SCHRITTEN VOR:
                 
@@ -680,7 +683,7 @@
             return freq;
         }
 
-        // Schneidet das (neu) für PDF Druck und Statistik ab!
+        // Schneidet das (neu) ab
         function cleanNameForStats(name) {
             return name.replace(/\s*\(neu\)/gi, '').trim();
         }
@@ -761,14 +764,14 @@
                         doc.setFont("helvetica", "normal");
                         if (namesArray.length > 0) {
                             namesArray.forEach(name => {
-                                const cleanName = cleanNameForStats(name); // Schneidet das (neu) ab
+                                const cleanName = cleanNameForStats(name); 
                                 
-                                doc.text(cleanName, margin, y); // Druckt den sauberen Namen
+                                doc.text(cleanName, margin, y);
                                 y += 6;
                                 
                                 const nameLower = cleanName.toLowerCase();
                                 if (!nameLower.includes("freiwillige") && !nameLower.includes("ersatz")) {
-                                    currentNamesToServe.push(cleanName); // Zählt den sauberen Namen für die Statistik
+                                    currentNamesToServe.push(cleanName);
                                 }
                             });
                         } else {
@@ -922,3 +925,5 @@
     </script>
 </body>
 </html>
+
+
