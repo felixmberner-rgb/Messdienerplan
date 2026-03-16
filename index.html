@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v21.0</title>
+    <title>Messdienerplan v22.0</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -102,7 +102,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v21.0</span>
+            <span class="version">v22.0</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -222,7 +222,6 @@
             }
         }
 
-        // Hard Reload
         function hardReloadApp() {
             if ('caches' in window) {
                 caches.keys().then((names) => {
@@ -359,7 +358,6 @@
                 document.getElementById('editorSection').classList.remove('hidden');
             }
 
-            // Lade News wiederherstellen
             const savedNews = JSON.parse(localStorage.getItem('savedNewsData') || "[]");
             if (savedNews.length > 0) {
                 savedNews.forEach(item => {
@@ -465,49 +463,48 @@
                     });
                 }
 
-                // KI PROMPT mit Wissen zu Sommer-/Winterzeit und Wochentagen!
-                let promptText = `Du bist ein präziser Assistent für die Erstellung von Messdienerplänen. Lies das hochgeladene Dokument EXTREM GRÜNDLICH.
+                // PERFEKTER UND STRENGER KI PROMPT FÜR MINIMALE FEHLERQUOTE
+                let promptText = `Du bist ein hochpräziser Assistent für die Erstellung von Messdienerplänen. Lies die hochgeladenen Dokumente/Fotos EXTREM GRÜNDLICH.
 
-                Basisdaten:
-                Gruppen: "${groupText}"
-                Einsatz-Statistiken (niedrigere Zahl = wird bevorzugt eingeteilt): ${currentStats} (Hinweis: Hier fehlen ggf. die "(neu)" Zusätze, beziehe die Werte immer auf den reinen Namen).
-                Abwesenheiten (CSV): "${absencesCSV}"
-                Immer zusammen einteilen: "${alwaysTogether}"
-                Nie zusammen einteilen: "${neverTogether}"
+                BASISDATEN:
+                - Gruppen: "${groupText}"
+                - Statistik (niedrige Zahl = bevorzugt einteilen): ${currentStats}
+                - Abwesenheiten (Urlaub/Krank): "${absencesCSV}"
+                - Immer zusammen: "${alwaysTogether}"
+                - Nie zusammen: "${neverTogether}"
                 
-                HILFREICHE INFO ZUM TYPISCHEN RHYTHMUS IN THALAU (Zur OCR-Korrektur bei unscharfen Fotos):
-                - Wochentage (Dienstag, Donnerstag, Freitag): In der Winterzeit meist 18:00 Uhr, Sommerzeit meist 19:00 Uhr.
-                - Samstags (alle 2 Wochen): In der Winterzeit meist 17:00 Uhr, Sommerzeit meist 18:00 Uhr.
-                - Sonntags: Die Uhrzeit wechselt idR. zwischen 09:00 Uhr und 10:30 Uhr.
-                - Ausnahmen: Beerdigungen, Taufen, Hochzeiten und Feiertage weichen von diesen Regeln ab.
-                ACHTUNG WICHTIG: Vertraue IMMER zuerst dem Text auf dem Bild! Nutze dieses Wissen nur als Plausibilitätsprüfung, falls Zahlen verschwommen oder schlecht lesbar sind.
+                WISSEN FÜR UNSCHARFE FOTOS (Plausibilitätsprüfung):
+                - Di, Do, Fr: Meist 18:00 (Winter) oder 19:00 (Sommer).
+                - Sa: Meist 17:00 oder 18:00.
+                - So: Meist 09:00 oder 10:30.
+                (Dies ist nur ein Richtwert für schwer leserliche Bilder. Vertraue immer primär dem gedruckten Text, z.B. bei Feiertagen!)
 
-                GEHE STRICKT NACH DIESEN SCHRITTEN VOR:
+                SCHRITT-FÜR-SCHRITT ANWEISUNGEN:
                 
-                SCHRITT 1: FILTERN NACH ORT
-                - Suche AUSSCHLIESSLICH Termine für den Ort "Thalau". 
-                - Termine für "Schmalnau" oder JEDEN anderen Ort dürfen UNTER KEINEN UMSTÄNDEN übernommen werden!
-                - Erlaubte Typen für Thalau: "Hl. Messe", "Gottesdienst", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem". (Ignoriere Rosenkranz, Andacht).
+                SCHRITT 1: ORTS-FILTER (ABSOLUT KRITISCH)
+                - Extrahiere AUSSCHLIESSLICH Termine für den Ort "Thalau".
+                - Termine für "Schmalnau" (oder andere Orte) MÜSSEN komplett ignoriert werden!
+                - Erlaubte Typen: "Hl. Messe", "Gottesdienst", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem". (Keine Andachten).
 
-                SCHRITT 2: PERSONALBEDARF ERMITTELN
+                SCHRITT 2: BEDARF
                 - Werktags (Mo-Sa): 2 Personen.
                 - Sonntags: 4 Personen.
-                - Ausnahme Taufe: EXAKT "Es werden 2 Freiwillige gesucht!".
-                - Ausnahme Hochzeit: EXAKT "Es werden 4 Freiwillige gesucht!".
+                - Taufe: Immer "Es werden 2 Freiwillige gesucht!" eintragen.
+                - Hochzeit: Immer "Es werden 4 Freiwillige gesucht!" eintragen.
 
-                SCHRITT 3: PERSONEN ZUTEILEN (GERECHT, ZUFÄLLIG & SICHER)
-                - Bestimme anhand des Pfarrbriefs die diensthabende Gruppe.
-                - Prüfe die Abwesenheiten (CSV): Wer fehlt, darf an dem Tag NIEMALS eingeteilt werden!
-                - REGEL FÜR "(neu)": Personen mit dem Zusatz "(neu)" sind Anfänger. Sie dürfen NIEMALS allein oder nur mit anderen Anfängern eingeteilt werden! Bei 2 Personen (Werktags): max. 1x "(neu)". Bei 4 Personen (Sonntags): max. 2x "(neu)". Es MUSS immer ein erfahrener Messdiener (ohne "neu") dabei sein.
-                - GERECHTIGKEIT & ABWECHSLUNG: Bevorzuge Personen mit der niedrigsten Zahl in der Statistik. Wenn mehrere Personen den gleichen Stand haben, Mische sie ZUFÄLLIG durch, damit nicht immer dieselben Paare zusammen dienen (es sei denn, sie stehen in der "Immer zusammen" Liste).
-                - NOTFALLREGEL: Wenn in der Gruppe durch Abwesenheiten nicht genug Personen verfügbar sind, fülle die fehlenden Plätze mit "1 Ersatz gesucht!" (oder "2 Ersatz gesucht!" usw.) auf.
+                SCHRITT 3: ZUTEILUNG & REGELN
+                - Bestimme die korrekte Gruppe anhand der Überschriften im Pfarrbrief.
+                - WER IN DER CSV ALS ABWESEND STEHT, DARF AN DIESEM TAG NICHT EINGETEILT WERDEN!
+                - GERECHTIGKEIT: Nimm die Personen mit der kleinsten Zahl in der Statistik. Herrscht Gleichstand, Mische sie ZUFÄLLIG durch (Abwechslung!).
+                - "(neu)" REGEL: Anfänger haben ein "(neu)" hinter dem Namen. Sie dürfen NIE allein dienen! Werktags: max. 1x "(neu)". Sonntags: max. 2x "(neu)". Es muss zwingend mindestens ein Erfahrener dabei sein.
+                - MANGEL: Wenn wegen Abwesenheiten zu wenig Personal da ist, trage "1 Ersatz gesucht!" (oder "2 Ersatz gesucht!") ein.
 
-                SCHRITT 4: VORSCHAU GENERIEREN
-                - Finde heraus, welche Gruppe am ALLERLETZTEN Sonntag dieses Plans Dienst hat (Gruppe X).
-                - Welche Gruppe kommt danach laut normaler Reihenfolge als nächstes dran? (Gruppe Y).
-                - Gib für die Vorschau AUSSCHLIESSLICH die zwei Gruppen aus, exakt so formatiert: "Gruppe [X] und [Y]" (Bilde KEINEN ganzen Satz!).
-                
-                GIB NUR EIN GÜLTIGES JSON-ARRAY ZURÜCK:
+                SCHRITT 4: VORSCHAU
+                - Wer ist am ALLERLETZTEN Sonntag dieses Plans dran? (Das ist Gruppe X).
+                - Wer folgt laut Turnus als nächstes? (Das ist Gruppe Y).
+                - Schreibe in das Vorschau-Textfeld NUR die Namen der Gruppen (z.B. "Gruppe A und B"). KEINE ganzen Sätze!
+
+                GIB AUSSCHLIESSLICH EIN GÜLTIGES JSON-ARRAY ZURÜCK:
                 [
                   {"art": "woche", "text": "Gruppe B: 22.02.2026 - 28.02.2026"},
                   {"art": "gottesdienst", "wochentag": "Mittwoch", "datum": "18.02.2026", "typ": "Hl. Messe", "uhrzeit": "19.00", "messdiener": "Name 1, Name 2 (neu)"},
@@ -531,7 +528,6 @@
                 localStorage.removeItem('savedEditorData');
                 localStorage.removeItem('lastGeneratedNames');
                 
-                // News bei neuem Plan zurücksetzen
                 localStorage.removeItem('savedNewsData');
                 document.getElementById('newsContainer').innerHTML = '';
                 newsCount = 0;
@@ -640,8 +636,8 @@
                     <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px; display: flex; flex-direction: column; align-items: center;">
                         <input type="hidden" class="art-input" value="vorschau">
                         <input type="hidden" class="is-new-input" value="${item.isNew ? 'true' : 'false'}">
-                        <label style="font-size:16px; color:var(--text-main); font-weight:bold; display:block; text-align:center; margin-bottom:5px; width: 100%;">Gruppen Vorschau:</label>
-                        <input type="text" class="vorschau-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:normal; text-align:center; background:transparent; border:none; font-size:15px; color: var(--primary); padding:0; margin:0;">
+                        <label style="font-size:18px; color:#000; font-weight:bold; display:block; text-align:center; margin-bottom:5px; width: 100%;">Gruppen Vorschau:</label>
+                        <input type="text" class="vorschau-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:normal; text-align:center; background:transparent; border:none; font-size:16px; color: var(--primary); padding:0; margin:0;">
                     </div>`;
                 } else {
                     container.innerHTML += `
@@ -683,7 +679,6 @@
             return freq;
         }
 
-        // Schneidet das (neu) ab
         function cleanNameForStats(name) {
             return name.replace(/\s*\(neu\)/gi, '').trim();
         }
@@ -730,8 +725,12 @@
                         continue;
                     }
 
+                    // PERFEKTE UMBRUCH-LOGIK FÜR DIE WOCHE
+                    // 297mm Blatt - 20mm Rand unten = 277mm nutzbar.
+                    // Woche = 14mm. Gottesdienst = ca. 32-44mm. Zusammen ca. 55mm.
+                    // Wenn y > 222 (277 - 55 = 222), dann passt es nicht mehr komplett!
                     if (art === 'woche') {
-                        if (y > 225) { doc.addPage(); y = 20; }
+                        if (y > 222) { doc.addPage(); y = 20; }
                         else { y += 4; }
                         
                         doc.setFont("helvetica", "bold");
