@@ -9,16 +9,16 @@
     <meta name="application-name" content="Messdienerplan">
     <meta name="theme-color" content="#F2F2F7">
     
-    <!-- MAXIMAL SICHERE APP ICON VERKNÜPFUNGEN -->
-    <link rel="apple-touch-icon" href="./icon.png">
-    <link rel="apple-touch-icon" sizes="152x152" href="./icon.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="./icon.png">
-    <link rel="apple-touch-icon" sizes="167x167" href="./icon.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="./icon.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="./icon.png">
-    <link rel="shortcut icon" href="./icon.png">
+    <!-- MAXIMAL SICHERE APP ICON VERKNÜPFUNGEN MIT CACHE-BUSTER -->
+    <link rel="apple-touch-icon" href="icon.png?v=2">
+    <link rel="apple-touch-icon" sizes="152x152" href="icon.png?v=2">
+    <link rel="apple-touch-icon" sizes="180x180" href="icon.png?v=2">
+    <link rel="apple-touch-icon" sizes="167x167" href="icon.png?v=2">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon.png?v=2">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=2">
+    <link rel="shortcut icon" href="icon.png?v=2">
 
-    <title>Messdienerplan v23.2</title>
+    <title>Messdienerplan v23.3</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -114,7 +114,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v23.2</span>
+            <span class="version">v23.3</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -181,7 +181,7 @@
                 <summary>System</summary>
                 <div class="details-content">
                     <button class="btn-secondary" style="margin-top: 12px; border: 1px solid var(--border);" onclick="hardReloadApp()">🔄 App aktualisieren (Neuladen)</button>
-                    <p style="font-size:12px; color:var(--text-muted); margin-top:8px;">Klicke hier, um den Cache zu leeren und die App auf die neueste Version zu zwingen.</p>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:8px;">Klicke hier, um den Cache zu leeren und die App auf die neueste Version zu zwingen. Einstellungen gehen NICHT verloren.</p>
                 </div>
             </details>
 
@@ -234,12 +234,37 @@
             }
         }
 
+        // SICHERER RELOAD - Speichert VORHER alle Werte!
         function hardReloadApp() {
+            // 1. Alle Einstellungen aus den Feldern auslesen und speichern
+            const apiKey = document.getElementById('apiKey').value;
+            if(apiKey) localStorage.setItem('geminiApiKey', apiKey);
+            
+            localStorage.setItem('savedGroupText', document.getElementById('groupText').value);
+            localStorage.setItem('savedSheetsLink', document.getElementById('sheetsLink').value);
+            localStorage.setItem('savedAlwaysTogether', document.getElementById('alwaysTogether').value);
+            localStorage.setItem('savedNeverTogether', document.getElementById('neverTogether').value);
+            
+            const statsInput = document.getElementById('serveStats').value;
+            try { 
+                if(statsInput.trim() !== "") { 
+                    JSON.parse(statsInput); 
+                    localStorage.setItem('savedServeStats', statsInput); 
+                } 
+            } catch(e) {} // Bei falscher Statistik nichts überschreiben
+
+            // 2. Editor & News speichern
+            saveEditorState();
+            saveNewsState();
+
+            // 3. Cache leeren
             if ('caches' in window) {
                 caches.keys().then((names) => {
                     names.forEach(name => caches.delete(name));
                 });
             }
+            
+            // 4. Reload
             window.location.reload(true);
         }
 
@@ -390,6 +415,47 @@
                 document.getElementById('serveStats').value = "{}";
                 localStorage.setItem('savedServeStats', "{}");
                 localStorage.removeItem('lastGeneratedNames');
+            }
+        }
+
+        async function extractGroups() {
+            const apiKey = document.getElementById('apiKey').value;
+            const fileInput = document.getElementById('gruppenPlanFile');
+            const statusDiv = document.getElementById('extractStatus');
+            const btn = document.getElementById('btnExtract');
+
+            if(!apiKey) return alert("Bitte API-Schlüssel eingeben.");
+            if(fileInput.files.length === 0) return alert("Datei hochladen.");
+
+            btn.disabled = true;
+            statusDiv.innerText = "Lese Dokument... ⏳";
+
+            try {
+                const fileData = await readFileAsBase64(fileInput.files[0]);
+                const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ 
+                            parts: [
+                                { text: "Schreibe die gesamte Gruppeneinteilung (Welche Gruppe hat welche Mitglieder) aus diesem Dokument als übersichtlichen Text heraus." },
+                                { inlineData: { mimeType: fileData.mimeType, data: fileData.data } }
+                            ] 
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+                if(data.error) throw new Error(data.error.message);
+
+                document.getElementById('groupText').value = data.candidates[0].content.parts[0].text;
+                document.querySelector('details').open = true;
+                statusDiv.innerText = "Erfolgreich ausgelesen!";
+            } catch(e) {
+                statusDiv.innerText = "Fehler beim Auslesen.";
+                alert(e.message);
+            } finally {
+                btn.disabled = false;
             }
         }
 
