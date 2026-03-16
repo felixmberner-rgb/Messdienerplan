@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v22.1</title>
+    <title>Messdienerplan v23.0</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -102,7 +102,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v22.1</span>
+            <span class="version">v23.0</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -205,7 +205,8 @@
     <script>
         let newsCount = 0;
 
-        async function fetchWithRetry(url, options, retries = 2) {
+        // Stark verbesserte Fetch-Funktion für das Auto-Fallback
+        async function fetchWithRetry(url, options, retries = 1) {
             for (let i = 0; i < retries; i++) {
                 try {
                     const response = await fetch(url, options);
@@ -463,7 +464,6 @@
                     });
                 }
 
-                // DER PERFEKTE KI PROMPT (Struktur, Klarheit, Sicherheit)
                 let promptText = `Du bist ein hochpräziser Assistent für die Erstellung von Messdienerplänen. Lies die Dokumente/Fotos EXTREM GRÜNDLICH.
 
                 BASISDATEN:
@@ -501,14 +501,14 @@
                 - Welche Gruppe folgt laut normaler Reihenfolge danach? (Das ist Gruppe Y).
                 - Schreibe in das "text" Feld AUSSCHLIESSLICH die zwei Gruppen, z.B.: "Gruppe X und Y". Bilde KEINE ganzen Sätze!
                 
-                GIB NUR EIN GÜLTIGES JSON-ARRAY ZURÜCK:
+                GIB AUSSCHLIESSLICH EIN GÜLTIGES JSON-ARRAY ZURÜCK:
                 [
                   {"art": "woche", "text": "Gruppe B: 22.02.2026 - 28.02.2026"},
                   {"art": "gottesdienst", "wochentag": "Mittwoch", "datum": "18.02.2026", "typ": "Hl. Messe", "uhrzeit": "19.00", "messdiener": "Name 1, Name 2 (neu)"},
                   {"art": "vorschau", "text": "Gruppe C und D"}
                 ]`;
 
-                const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                const fetchPayload = {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -517,7 +517,19 @@
                         }],
                         generationConfig: { response_mime_type: "application/json" }
                     })
-                });
+                };
+
+                let response;
+                try {
+                    // 1. Versuch mit PRO
+                    response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, fetchPayload);
+                } catch (error) {
+                    // FEHLER 503 ABFANGEN -> AUTO-FALLBACK ZU FLASH
+                    console.log("Pro Modell Fehler, starte Fallback auf Flash:", error);
+                    statusDiv.innerHTML = "Haupt-Server überlastet. Wechsle automatisch zum High-Speed Modell... ⚡";
+                    
+                    response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, fetchPayload);
+                }
 
                 const data = await response.json();
                 if(data.error) throw new Error(data.error.message);
@@ -630,7 +642,7 @@
                     </div>`;
                 } else if (item.art === 'vorschau') {
                     container.innerHTML += `
-                    <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px;">
+                    <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px; display: flex; flex-direction: column; align-items: center;">
                         <input type="hidden" class="art-input" value="vorschau">
                         <input type="hidden" class="is-new-input" value="${item.isNew ? 'true' : 'false'}">
                         <label style="font-size:18px; color:var(--text-main); font-weight:bold; text-align:center; margin-bottom:8px; width: 100%; display: block;">Gruppen Vorschau:</label>
