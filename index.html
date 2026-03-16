@@ -6,7 +6,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v23.0</title>
+    
+    <!-- NEU: App Icon Verknüpfungen für den Homescreen -->
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon.png">
+    <link rel="shortcut icon" href="icon.png">
+
+    <title>Messdienerplan v23.1</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -102,7 +108,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v23.0</span>
+            <span class="version">v23.1</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -205,7 +211,6 @@
     <script>
         let newsCount = 0;
 
-        // Stark verbesserte Fetch-Funktion für das Auto-Fallback
         async function fetchWithRetry(url, options, retries = 1) {
             for (let i = 0; i < retries; i++) {
                 try {
@@ -521,13 +526,10 @@
 
                 let response;
                 try {
-                    // 1. Versuch mit PRO
                     response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, fetchPayload);
                 } catch (error) {
-                    // FEHLER 503 ABFANGEN -> AUTO-FALLBACK ZU FLASH
                     console.log("Pro Modell Fehler, starte Fallback auf Flash:", error);
                     statusDiv.innerHTML = "Haupt-Server überlastet. Wechsle automatisch zum High-Speed Modell... ⚡";
-                    
                     response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, fetchPayload);
                 }
 
