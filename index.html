@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <title>Messdienerplan v18.1</title>
+    <title>Messdienerplan v20.1</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -102,7 +102,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v18.1</span>
+            <span class="version">v20.1</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -164,6 +164,14 @@
                     </div>
                 </div>
             </details>
+            
+            <details>
+                <summary>System</summary>
+                <div class="details-content">
+                    <button class="btn-secondary" style="margin-top: 12px; border: 1px solid var(--border);" onclick="hardReloadApp()">🔄 App aktualisieren (Neuladen)</button>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:8px;">Klicke hier, um den Cache zu leeren und die App auf die neueste Version zu zwingen.</p>
+                </div>
+            </details>
 
             <button onclick="saveSettings()" style="background-color: var(--success); margin-top: 16px;">Speichern</button>
         </div>
@@ -214,6 +222,16 @@
             }
         }
 
+        // Hard Reload
+        function hardReloadApp() {
+            if ('caches' in window) {
+                caches.keys().then((names) => {
+                    names.forEach(name => caches.delete(name));
+                });
+            }
+            window.location.reload(true);
+        }
+
         function copyStats() {
             const text = document.getElementById('serveStats').value;
             navigator.clipboard.writeText(text).then(() => {
@@ -240,13 +258,42 @@
             }
         }
 
-        function addNewsItem() {
+        function saveNewsState() {
+            const newsItems = [];
+            for (let i = 0; i < newsCount; i++) {
+                const hElem = document.getElementById(`newsHeading_${i}`);
+                const cElem = document.getElementById(`newsContent_${i}`);
+                if (hElem && cElem) {
+                    newsItems.push({ heading: hElem.value, content: cElem.value });
+                }
+            }
+            localStorage.setItem('savedNewsData', JSON.stringify(newsItems));
+        }
+
+        function addNewsItem(heading = '', content = '') {
             const container = document.getElementById('newsContainer');
             const div = document.createElement('div');
             div.className = 'news-item';
-            div.innerHTML = `<input type="text" id="newsHeading_${newsCount}" placeholder="Überschrift (z.B. Messdienerprobe)" oninput="saveEditorState()"><textarea id="newsContent_${newsCount}" placeholder="Informationen oder Ankündigungen hier eintragen..." oninput="saveEditorState()"></textarea>`;
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.id = `newsHeading_${newsCount}`;
+            input.placeholder = "Überschrift (z.B. Messdienerprobe)";
+            input.value = heading;
+            input.oninput = saveNewsState;
+            
+            const textarea = document.createElement('textarea');
+            textarea.id = `newsContent_${newsCount}`;
+            textarea.placeholder = "Informationen oder Ankündigungen hier eintragen...";
+            textarea.value = content;
+            textarea.oninput = saveNewsState;
+            
+            div.appendChild(input);
+            div.appendChild(textarea);
             container.appendChild(div);
+            
             newsCount++;
+            saveNewsState();
         }
 
         function readFileAsBase64(file) {
@@ -311,7 +358,15 @@
                 renderEditor(JSON.parse(savedEditor));
                 document.getElementById('editorSection').classList.remove('hidden');
             }
-            addNewsItem();
+
+            const savedNews = JSON.parse(localStorage.getItem('savedNewsData') || "[]");
+            if (savedNews.length > 0) {
+                savedNews.forEach(item => {
+                    addNewsItem(item.heading, item.content);
+                });
+            } else {
+                addNewsItem();
+            }
         };
 
         function toggleSettings() {
@@ -324,47 +379,6 @@
                 document.getElementById('serveStats').value = "{}";
                 localStorage.setItem('savedServeStats', "{}");
                 localStorage.removeItem('lastGeneratedNames');
-            }
-        }
-
-        async function extractGroups() {
-            const apiKey = document.getElementById('apiKey').value;
-            const fileInput = document.getElementById('gruppenPlanFile');
-            const statusDiv = document.getElementById('extractStatus');
-            const btn = document.getElementById('btnExtract');
-
-            if(!apiKey) return alert("Bitte API-Schlüssel eingeben.");
-            if(fileInput.files.length === 0) return alert("Datei hochladen.");
-
-            btn.disabled = true;
-            statusDiv.innerText = "Lese Dokument... ⏳";
-
-            try {
-                const fileData = await readFileAsBase64(fileInput.files[0]);
-                const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ 
-                            parts: [
-                                { text: "Schreibe die gesamte Gruppeneinteilung (Welche Gruppe hat welche Mitglieder) aus diesem Dokument als übersichtlichen Text heraus." },
-                                { inlineData: { mimeType: fileData.mimeType, data: fileData.data } }
-                            ] 
-                        }]
-                    })
-                });
-
-                const data = await response.json();
-                if(data.error) throw new Error(data.error.message);
-
-                document.getElementById('groupText').value = data.candidates[0].content.parts[0].text;
-                document.querySelector('details').open = true;
-                statusDiv.innerText = "Erfolgreich ausgelesen!";
-            } catch(e) {
-                statusDiv.innerText = "Fehler beim Auslesen.";
-                alert(e.message);
-            } finally {
-                btn.disabled = false;
             }
         }
 
@@ -410,6 +424,8 @@
             const apiKey = localStorage.getItem('geminiApiKey');
             const groupText = document.getElementById('groupText').value;
             const sheetsLink = document.getElementById('sheetsLink').value.trim();
+            const alwaysTogether = document.getElementById('alwaysTogether').value;
+            const neverTogether = document.getElementById('neverTogether').value;
             const currentStats = document.getElementById('serveStats').value;
             
             const pfarrbriefInput = document.getElementById('pfarrbriefFile');
@@ -425,7 +441,7 @@
             if(sheetsLink) {
                 statusDiv.innerHTML = "Lade Abwesenheiten aus Google Sheets... ⏳";
                 try {
-                    if(sheetsLink.includes("/edit?usp=sharing")) throw new Error("Falscher Tabellen-Link (CORS Fehler)");
+                    if(sheetsLink.includes("/edit?usp=sharing")) throw new Error("Falscher Tabellen-Link");
                     const res = await fetch(sheetsLink);
                     if(!res.ok) throw new Error("Netzwerkfehler");
                     absencesCSV = await res.text();
@@ -448,42 +464,50 @@
                     });
                 }
 
-                // Extremer Anti-Schmalnau Prompt
-                let promptText = `Du bist ein präziser Assistent für die Erstellung von Messdienerplänen. Lies das hochgeladene Dokument EXTREM GRÜNDLICH. Bei Fotos/Screenshots: Achte besonders auf abgeschnittene Ränder!
+                let promptText = `Du bist ein präziser Assistent für die Erstellung von Messdienerplänen. Lies das hochgeladene Dokument EXTREM GRÜNDLICH.
 
                 Basisdaten:
                 Gruppen: "${groupText}"
-                Einsatz-Statistiken (niedrigere Zahl = wird bevorzugt eingeteilt): ${currentStats}
-                Abwesenheiten (Live aus Google Forms): "${absencesCSV}"
+                Einsatz-Statistiken (niedrigere Zahl = wird bevorzugt eingeteilt): ${currentStats} (Hinweis: Hier fehlen ggf. die "(neu)" Zusätze, beziehe die Werte immer auf den reinen Namen).
+                Abwesenheiten (CSV): "${absencesCSV}"
+                Immer zusammen einteilen: "${alwaysTogether}"
+                Nie zusammen einteilen: "${neverTogether}"
                 
+                HILFREICHE INFO ZUM TYPISCHEN RHYTHMUS IN THALAU (Zur OCR-Korrektur bei Fotos):
+                - Jede Woche: Sonntag, Dienstag, Donnerstag.
+                - Ca. 1x im Monat: Freitag.
+                - Alle 2 Wochen: Samstag.
+                - Dazu kommen Beerdigungen, Taufen, Hochzeiten.
+
                 GEHE STRICKT NACH DIESEN SCHRITTEN VOR:
                 
-                SCHRITT 1: FILTERN NACH ORT (ABSOLUTE PRIORITÄT)
-                - Suche AUSSCHLIESSLICH Termine für den Ort "Thalau".
-                - Termine für "Schmalnau" oder JEDEN anderen Ort dürfen UNTER KEINEN UMSTÄNDEN übernommen werden! Ignoriere sie komplett! Das ist extrem wichtig!
-                - Erlaubte Typen für Thalau: "Hl. Messe", "Gottesdienst", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem".
-                - IGNORIERE alles andere (wie Rosenkranz, Andacht, Maiandacht, Unterricht).
+                SCHRITT 1: FILTERN NACH ORT
+                - Suche AUSSCHLIESSLICH Termine für den Ort "Thalau". 
+                - Termine für "Schmalnau" oder JEDEN anderen Ort dürfen UNTER KEINEN UMSTÄNDEN übernommen werden!
+                - Erlaubte Typen für Thalau: "Hl. Messe", "Gottesdienst", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem". (Ignoriere Rosenkranz, Andacht).
 
                 SCHRITT 2: PERSONALBEDARF ERMITTELN
                 - Werktags (Mo-Sa): 2 Personen.
                 - Sonntags: 4 Personen.
-                - Ausnahmen: Bei "Taufe" brauchst du EXAKT den Text "Es werden 2 Freiwillige gesucht!" (Keine Namen). Bei "Hochzeit" EXAKT "Es werden 4 Freiwillige gesucht!".
+                - Ausnahme Taufe: EXAKT "Es werden 2 Freiwillige gesucht!".
+                - Ausnahme Hochzeit: EXAKT "Es werden 4 Freiwillige gesucht!".
 
-                SCHRITT 3: PERSONEN ZUTEILEN (GERECHT & FAIR)
-                - Bestimme anhand des Pfarrbriefs, welche Gruppe in der jeweiligen Woche "dran" ist.
-                - Prüfe die Abwesenheiten (CSV): Wer an diesem Datum fehlt, darf NIEMALS eingeteilt werden!
-                - Wähle aus den verbleibenden Personen der Gruppe diejenigen mit den WENIGSTEN Einsätzen (laut Statistik).
-                - NOTFALLREGEL: Wenn wegen Abwesenheiten in der Gruppe nicht genug Personen da sind, fülle die verbleibenden Plätze mit dem Text "1 Ersatz gesucht!" (bzw. 2 oder 3) auf.
+                SCHRITT 3: PERSONEN ZUTEILEN (GERECHT, ZUFÄLLIG & SICHER)
+                - Bestimme anhand des Pfarrbriefs die diensthabende Gruppe.
+                - Prüfe die Abwesenheiten (CSV): Wer fehlt, darf an dem Tag NIEMALS eingeteilt werden!
+                - REGEL FÜR "(neu)": Personen mit dem Zusatz "(neu)" sind Anfänger. Sie dürfen NIEMALS allein oder nur mit anderen Anfängern eingeteilt werden! Bei 2 Personen (Werktags): max. 1x "(neu)". Bei 4 Personen (Sonntags): max. 2x "(neu)". Es MUSS immer ein erfahrener Messdiener (ohne "neu") dabei sein.
+                - GERECHTIGKEIT & ABWECHSLUNG: Bevorzuge Personen mit der niedrigsten Zahl in der Statistik. Wenn mehrere Personen den gleichen Stand haben, Mische sie ZUFÄLLIG durch, damit nicht immer dieselben Paare zusammen dienen (es sei denn, sie stehen in der "Immer zusammen" Liste).
+                - NOTFALLREGEL: Wenn in der Gruppe durch Abwesenheiten nicht genug Personen verfügbar sind, fülle die fehlenden Plätze mit "1 Ersatz gesucht!" (oder "2 Ersatz gesucht!" usw.) auf.
 
                 SCHRITT 4: VORSCHAU GENERIEREN
-                - Finde heraus, welche Gruppe am ALLERLETZTEN Sonntag dieses Plans Dienst hat (Nennen wir sie Gruppe X).
-                - Welche Gruppe kommt danach laut normaler Reihenfolge als nächstes dran? (Nennen wir sie Gruppe Y).
-                - Gib für die Vorschau AUSSCHLIESSLICH die zwei Gruppen aus, exakt so formatiert: "Gruppe [X] und [Y]" (KEINE Sätze bilden!).
+                - Finde heraus, welche Gruppe am ALLERLETZTEN Sonntag dieses Plans Dienst hat (Gruppe X).
+                - Welche Gruppe kommt danach laut normaler Reihenfolge als nächstes dran? (Gruppe Y).
+                - Gib für die Vorschau AUSSCHLIESSLICH die zwei Gruppen aus, exakt so formatiert: "Gruppe [X] und [Y]" (Bilde KEINEN ganzen Satz!).
                 
                 GIB NUR EIN GÜLTIGES JSON-ARRAY ZURÜCK:
                 [
                   {"art": "woche", "text": "Gruppe B: 22.02.2026 - 28.02.2026"},
-                  {"art": "gottesdienst", "wochentag": "Mittwoch", "datum": "18.02.2026", "typ": "Hl. Messe", "uhrzeit": "19.00", "messdiener": "Name 1, Name 2"},
+                  {"art": "gottesdienst", "wochentag": "Mittwoch", "datum": "18.02.2026", "typ": "Hl. Messe", "uhrzeit": "19.00", "messdiener": "Name 1, Name 2 (neu)"},
                   {"art": "vorschau", "text": "Gruppe C und D"}
                 ]`;
 
@@ -503,6 +527,12 @@
 
                 localStorage.removeItem('savedEditorData');
                 localStorage.removeItem('lastGeneratedNames');
+                
+                // News bei neuem Plan zurücksetzen
+                localStorage.removeItem('savedNewsData');
+                document.getElementById('newsContainer').innerHTML = '';
+                newsCount = 0;
+                addNewsItem();
 
                 const rawJson = data.candidates[0].content.parts[0].text;
                 renderEditor(JSON.parse(rawJson));
@@ -603,7 +633,6 @@
                         <input type="text" class="woche-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:600; text-align:center; background:transparent; border:none; font-size:16px;">
                     </div>`;
                 } else if (item.art === 'vorschau') {
-                    // Flexbox zur perfekten Zentrierung von Überschrift und Text
                     container.innerHTML += `
                     <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px; display: flex; flex-direction: column; align-items: center;">
                         <input type="hidden" class="art-input" value="vorschau">
@@ -649,6 +678,11 @@
             let freq = {};
             arr.forEach(n => freq[n] = (freq[n] || 0) + 1);
             return freq;
+        }
+
+        // Schneidet das (neu) für PDF Druck und Statistik ab!
+        function cleanNameForStats(name) {
+            return name.replace(/\s*\(neu\)/gi, '').trim();
         }
 
         async function generatePDF() {
@@ -727,12 +761,14 @@
                         doc.setFont("helvetica", "normal");
                         if (namesArray.length > 0) {
                             namesArray.forEach(name => {
-                                doc.text(name, margin, y);
+                                const cleanName = cleanNameForStats(name); // Schneidet das (neu) ab
+                                
+                                doc.text(cleanName, margin, y); // Druckt den sauberen Namen
                                 y += 6;
                                 
-                                const nameLower = name.toLowerCase();
+                                const nameLower = cleanName.toLowerCase();
                                 if (!nameLower.includes("freiwillige") && !nameLower.includes("ersatz")) {
-                                    currentNamesToServe.push(name);
+                                    currentNamesToServe.push(cleanName); // Zählt den sauberen Namen für die Statistik
                                 }
                             });
                         } else {
