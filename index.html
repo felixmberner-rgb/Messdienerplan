@@ -9,11 +9,16 @@
     <meta name="application-name" content="Messdienerplan">
     <meta name="theme-color" content="#F2F2F7">
     
+    <!-- MAXIMAL SICHERE APP ICON VERKNÜPFUNGEN MIT CACHE-BUSTER -->
     <link rel="apple-touch-icon" href="icon.png?v=2">
+    <link rel="apple-touch-icon" sizes="152x152" href="icon.png?v=2">
+    <link rel="apple-touch-icon" sizes="180x180" href="icon.png?v=2">
+    <link rel="apple-touch-icon" sizes="167x167" href="icon.png?v=2">
     <link rel="icon" type="image/png" sizes="192x192" href="icon.png?v=2">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=2">
     <link rel="shortcut icon" href="icon.png?v=2">
 
-    <title>Messdienerplan v24.0</title>
+    <title>Messdienerplan v24.1</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -109,7 +114,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v24.0</span>
+            <span class="version">v24.1</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -121,25 +126,32 @@
 
     <div id="settingsCard" class="card hidden">
         <h2>Einstellungen</h2>
-        <div class="ios-input-group">
-            <label>Gemini API-Schlüssel</label>
-            <input type="text" id="apiKey" placeholder="AIzaSy...">
-        </div>
         
         <div class="ios-input-group">
-            <label>Firebase Projekt-ID (Sync)</label>
-            <input type="text" id="fbProjectId" placeholder="mein-projekt-123">
-            <label style="margin-top:8px;">Firebase API-Key</label>
-            <input type="text" id="fbApiKey" placeholder="AIzaSy...">
-            <button class="btn-secondary" style="margin-top:10px;" onclick="manualFirebaseSync()">Daten jetzt synchronisieren</button>
-            <span id="fbStatus" style="font-size:12px; color:var(--text-muted); margin-top:4px;"></span>
+            <label>API-Schlüssel (Gemini KI)</label>
+            <input type="text" id="apiKey" placeholder="AIzaSy...">
         </div>
 
+        <div class="ios-input-group">
+            <label>Firebase Projekt-ID (Cloud Sync)</label>
+            <input type="text" id="fbProjectId" placeholder="z.B. messdienerplan-b8c62">
+            <button class="btn-secondary" style="margin-top:10px;" onclick="manualFirebaseSync()">🔄 Daten jetzt synchronisieren</button>
+            <span id="fbStatus" style="font-size:12px; color:var(--primary); margin-top:6px; text-align: center;"></span>
+        </div>
+        
         <div class="ios-input-group">
             <label>Logo / Kopfzeile (Quadratisch)</label>
             <label for="logoFile" class="custom-file-upload" id="logoLabel">📄 Logo auswählen</label>
             <input type="file" id="logoFile" accept="image/*" onchange="updateFileLabel(this, 'logoLabel')">
             <span id="logoStatus" class="success-text hidden">✔️ Logo ist gespeichert.</span>
+        </div>
+
+        <div class="ios-input-group">
+            <label>Gruppeneinteilung hochladen</label>
+            <label for="gruppenPlanFile" class="custom-file-upload" id="gruppenLabel">📄 Datei / Foto auswählen</label>
+            <input type="file" id="gruppenPlanFile" accept="application/pdf,image/*" onchange="updateFileLabel(this, 'gruppenLabel')">
+            <button class="btn-secondary" onclick="extractGroups()" id="btnExtract">Gruppen aus Datei auslesen</button>
+            <div id="extractStatus" style="font-size: 13px; color: var(--text-muted); margin-top: 5px;"></div>
         </div>
 
         <div class="card-padding" style="padding-top: 0;">
@@ -154,13 +166,16 @@
 
                     <span class="details-label">Dienen IMMER zusammen:</span>
                     <textarea id="alwaysTogether" placeholder="z.B. Anna und Paul" style="min-height: 50px;"></textarea>
+                    
+                    <span class="details-label">Dienen NIE zusammen:</span>
+                    <textarea id="neverTogether" placeholder="z.B. Max und Moritz" style="min-height: 50px;"></textarea>
                 </div>
             </details>
             
             <details>
                 <summary>Einsatz-Statistiken (Backup & Reset)</summary>
                 <div class="details-content">
-                    <span class="details-label">Bisherige Einsätze (JSON):</span>
+                    <span class="details-label">Bisherige Einsätze (Manuell bearbeitbar):</span>
                     <textarea id="serveStats" placeholder="{}" style="min-height: 100px; font-family: monospace;"></textarea>
                     
                     <div style="display: flex; gap: 8px;">
@@ -174,6 +189,7 @@
                 <summary>System</summary>
                 <div class="details-content">
                     <button class="btn-secondary" style="margin-top: 12px; border: 1px solid var(--border);" onclick="hardReloadApp()">🔄 App aktualisieren (Neuladen)</button>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:8px;">Klicke hier, um den Cache zu leeren und die App auf die neueste Version zu zwingen. Einstellungen gehen NICHT verloren.</p>
                 </div>
             </details>
 
@@ -209,60 +225,83 @@
     <script>
         let newsCount = 0;
 
-        // --- FIREBASE SYNC LOGIK ---
+        // --- FIREBASE SYNC LOGIK (OHNE API KEY) ---
         async function firebaseRequest(method, data = null) {
-            const projectId = localStorage.getItem('fbProjectId');
-            const apiKey = localStorage.getItem('fbApiKey');
-            if (!projectId || !apiKey) return null;
-
-            const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/stats/global?key=${apiKey}`;
+            // Hole die Projekt-ID aus dem Feld (oder LocalStorage)
+            const projectIdElement = document.getElementById('fbProjectId');
+            const projectId = projectIdElement ? projectIdElement.value.trim() : localStorage.getItem('fbProjectId');
             
+            if (!projectId) return null;
+
+            // REST API Endpoint ohne "?key="
+            let url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/messdienerplan/statistik`;
+
             const options = {
                 method: method,
                 headers: { 'Content-Type': 'application/json' }
             };
 
             if (data) {
-                // Firestore verlangt ein spezielles Format für Felder
                 options.body = JSON.stringify({
                     fields: {
                         json: { stringValue: JSON.stringify(data) },
                         updated: { timestampValue: new Date().toISOString() }
                     }
                 });
-                // Bei Update (PATCH) müssen wir sagen, welche Felder überschrieben werden
-                if (method === 'PATCH') options.url += '&updateMask.fieldPaths=json&updateMask.fieldPaths=updated';
+                
+                if (method === 'PATCH') {
+                    // Update Maske ist für PATCH in Firestore zwingend erforderlich
+                    url += '?updateMask.fieldPaths=json&updateMask.fieldPaths=updated';
+                }
             }
 
             try {
                 const response = await fetch(url, options);
-                if (!response.ok) return null;
+                if (!response.ok) {
+                    console.log("Firebase Response Error:", response.status);
+                    return null;
+                }
                 const result = await response.json();
                 return result.fields ? JSON.parse(result.fields.json.stringValue) : null;
             } catch (e) {
-                console.error("Firebase Error", e);
+                console.error("Firebase Error:", e);
                 return null;
             }
         }
 
         async function manualFirebaseSync() {
             const status = document.getElementById('fbStatus');
-            status.innerText = "Synchronisiere... ⏳";
+            const projectId = document.getElementById('fbProjectId').value.trim();
+            
+            if(!projectId) {
+                status.innerText = "Bitte zuerst eine Projekt-ID eingeben!";
+                return;
+            }
+            
+            status.innerText = "Synchronisiere mit der Cloud... ⏳";
+            
+            // Versuche Daten aus der Cloud zu laden
             const remoteData = await firebaseRequest('GET');
             
             if (remoteData) {
-                const localData = JSON.parse(localStorage.getItem('savedServeStats') || "{}");
-                // Einfache Merge-Logik: Remote gewinnt bei Konflikt (oder du implementierst Zeitstempel)
+                // Cloud-Daten existieren -> Lokal überschreiben
                 localStorage.setItem('savedServeStats', JSON.stringify(remoteData));
                 document.getElementById('serveStats').value = JSON.stringify(remoteData, null, 2);
-                status.innerText = "✅ Daten aus Cloud geladen!";
+                status.innerText = "✅ Daten erfolgreich aus der Cloud geladen!";
             } else {
-                // Wenn nichts da ist, laden wir das Lokale hoch
-                const localData = JSON.parse(localStorage.getItem('savedServeStats') || "{}");
+                // Cloud-Daten existieren nicht (oder leer) -> Lokale Daten hochladen
+                const localDataString = document.getElementById('serveStats').value || "{}";
+                let localData = {};
+                try { localData = JSON.parse(localDataString); } catch(e) {}
+                
                 await firebaseRequest('PATCH', localData);
-                status.innerText = "✅ Lokale Daten hochgeladen!";
+                status.innerText = "✅ Lokale Daten in die Cloud hochgeladen!";
             }
+            
+            // Nach 3 Sekunden Status wieder ausblenden
+            setTimeout(() => { status.innerText = ""; }, 3000);
         }
+        // -----------------------------------------
 
         async function fetchWithRetry(url, options, retries = 1) {
             for (let i = 0; i < retries; i++) {
@@ -275,30 +314,67 @@
                     return response;
                 } catch (err) {
                     if (i === retries - 1) throw err;
+                    console.log(`Verbindungsabbruch. Starte Versuch ${i+2}/${retries}...`);
                     await new Promise(res => setTimeout(res, 2000));
                 }
             }
         }
 
         function hardReloadApp() {
+            const apiKey = document.getElementById('apiKey').value;
+            if(apiKey) localStorage.setItem('geminiApiKey', apiKey);
+            
+            const fbProj = document.getElementById('fbProjectId').value;
+            if(fbProj) localStorage.setItem('fbProjectId', fbProj);
+            
+            localStorage.setItem('savedGroupText', document.getElementById('groupText').value);
+            localStorage.setItem('savedSheetsLink', document.getElementById('sheetsLink').value);
+            localStorage.setItem('savedAlwaysTogether', document.getElementById('alwaysTogether').value);
+            localStorage.setItem('savedNeverTogether', document.getElementById('neverTogether').value);
+            
+            const statsInput = document.getElementById('serveStats').value;
+            try { 
+                if(statsInput.trim() !== "") { 
+                    JSON.parse(statsInput); 
+                    localStorage.setItem('savedServeStats', statsInput); 
+                } 
+            } catch(e) {}
+
             saveEditorState();
             saveNewsState();
+
+            if ('caches' in window) {
+                caches.keys().then((names) => {
+                    names.forEach(name => caches.delete(name));
+                });
+            }
+            
             window.location.reload(true);
         }
 
         function copyStats() {
             const text = document.getElementById('serveStats').value;
             navigator.clipboard.writeText(text).then(() => {
-                alert("Kopiert!");
+                alert("Statistik wurde in die Zwischenablage kopiert!");
+            }).catch(err => {
+                alert("Fehler beim Kopieren: " + err);
             });
         }
 
         function updateFileLabel(input, labelId) {
             const label = document.getElementById(labelId);
             if (input.files && input.files.length > 0) {
-                label.innerText = "✅ " + (input.files.length === 1 ? input.files[0].name : input.files.length + " Dateien");
+                if (input.files.length === 1) {
+                    label.innerText = "✅ " + input.files[0].name;
+                } else {
+                    label.innerText = "✅ " + input.files.length + " Dateien ausgewählt";
+                }
                 label.style.backgroundColor = "#e8f5e9";
                 label.style.color = "#2e7d32";
+            } else {
+                label.innerText = "📄 Datei / Foto auswählen";
+                label.style.backgroundColor = "#E5E5EA";
+                label.style.color = "var(--primary)";
             }
         }
 
@@ -318,8 +394,24 @@
             const container = document.getElementById('newsContainer');
             const div = document.createElement('div');
             div.className = 'news-item';
-            div.innerHTML = `<input type="text" id="newsHeading_${newsCount}" value="${heading}" placeholder="Überschrift" oninput="saveNewsState()"><textarea id="newsContent_${newsCount}" placeholder="Text..." oninput="saveNewsState()">${content}</textarea>`;
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.id = `newsHeading_${newsCount}`;
+            input.placeholder = "Überschrift (z.B. Messdienerprobe)";
+            input.value = heading;
+            input.oninput = saveNewsState;
+            
+            const textarea = document.createElement('textarea');
+            textarea.id = `newsContent_${newsCount}`;
+            textarea.placeholder = "Informationen oder Ankündigungen hier eintragen...";
+            textarea.value = content;
+            textarea.oninput = saveNewsState;
+            
+            div.appendChild(input);
+            div.appendChild(textarea);
             container.appendChild(div);
+            
             newsCount++;
             saveNewsState();
         }
@@ -336,14 +428,18 @@
         function saveEditorState() {
             const container = document.getElementById('editorContainer');
             if(!container || container.innerHTML.trim() === '') return; 
+            
             const blocks = container.querySelectorAll('.editor-block');
             const dataArray = [];
+            
             blocks.forEach(block => {
                 const art = block.querySelector('.art-input').value;
+                const isNew = block.querySelector('.is-new-input') ? block.querySelector('.is-new-input').value === 'true' : false;
+
                 if (art === 'woche') {
-                    dataArray.push({ art: 'woche', text: block.querySelector('.woche-text-input').value });
+                    dataArray.push({ art: 'woche', text: block.querySelector('.woche-text-input').value, isNew: isNew });
                 } else if (art === 'vorschau') {
-                    dataArray.push({ art: 'vorschau', text: block.querySelector('.vorschau-text-input').value });
+                    dataArray.push({ art: 'vorschau', text: block.querySelector('.vorschau-text-input').value, isNew: isNew });
                 } else {
                     dataArray.push({
                         art: 'gottesdienst',
@@ -351,33 +447,47 @@
                         datum: block.querySelector('.datum-input').value,
                         typ: block.querySelector('.typ-input').value,
                         uhrzeit: block.querySelector('.uhrzeit-input').value,
-                        messdiener: block.querySelector('.messdiener-input').value
+                        messdiener: block.querySelector('.messdiener-input').value,
+                        isNew: isNew
                     });
                 }
             });
+            
             localStorage.setItem('savedEditorData', JSON.stringify(dataArray));
         }
 
-        window.onload = async function() {
-            // Lade alle Settings
-            document.getElementById('apiKey').value = localStorage.getItem('geminiApiKey') || "";
-            document.getElementById('fbProjectId').value = localStorage.getItem('fbProjectId') || "";
-            document.getElementById('fbApiKey').value = localStorage.getItem('fbApiKey') || "";
-            document.getElementById('groupText').value = localStorage.getItem('savedGroupText') || "";
-            document.getElementById('sheetsLink').value = localStorage.getItem('savedSheetsLink') || "";
-            document.getElementById('alwaysTogether').value = localStorage.getItem('savedAlwaysTogether') || "";
-            document.getElementById('serveStats').value = localStorage.getItem('savedServeStats') || "{}";
-            if(localStorage.getItem('savedLogo')) document.getElementById('logoStatus').classList.remove('hidden');
+        document.getElementById('editorSection').addEventListener('input', saveEditorState);
 
-            // Firebase Auto-Sync beim Start
+        window.onload = async function() {
+            if(localStorage.getItem('geminiApiKey')) {
+                document.getElementById('apiKey').value = localStorage.getItem('geminiApiKey');
+            } else {
+                document.getElementById('settingsCard').classList.remove('hidden');
+                document.getElementById('uploadCard').classList.add('hidden');
+            }
+            
+            // Firebase ID laden
+            if(localStorage.getItem('fbProjectId')) {
+                document.getElementById('fbProjectId').value = localStorage.getItem('fbProjectId');
+            }
+            
+            if(localStorage.getItem('savedGroupText')) document.getElementById('groupText').value = localStorage.getItem('savedGroupText');
+            if(localStorage.getItem('savedSheetsLink')) document.getElementById('sheetsLink').value = localStorage.getItem('savedSheetsLink');
+            if(localStorage.getItem('savedAlwaysTogether')) document.getElementById('alwaysTogether').value = localStorage.getItem('savedAlwaysTogether');
+            if(localStorage.getItem('savedNeverTogether')) document.getElementById('neverTogether').value = localStorage.getItem('savedNeverTogether');
+            if(localStorage.getItem('savedLogo')) document.getElementById('logoStatus').classList.remove('hidden');
+            
+            document.getElementById('serveStats').value = localStorage.getItem('savedServeStats') || "{}";
+            
+            // AUTOMATISCHER SYNC BEIM START (falls ID vorhanden)
             if (localStorage.getItem('fbProjectId')) {
-                const remote = await firebaseRequest('GET');
-                if (remote) {
-                    localStorage.setItem('savedServeStats', JSON.stringify(remote));
-                    document.getElementById('serveStats').value = JSON.stringify(remote, null, 2);
+                const remoteData = await firebaseRequest('GET');
+                if (remoteData) {
+                    localStorage.setItem('savedServeStats', JSON.stringify(remoteData));
+                    document.getElementById('serveStats').value = JSON.stringify(remoteData, null, 2);
                 }
             }
-
+            
             const savedEditor = localStorage.getItem('savedEditorData');
             if (savedEditor && savedEditor !== "[]") {
                 renderEditor(JSON.parse(savedEditor));
@@ -386,7 +496,9 @@
 
             const savedNews = JSON.parse(localStorage.getItem('savedNewsData') || "[]");
             if (savedNews.length > 0) {
-                savedNews.forEach(item => addNewsItem(item.heading, item.content));
+                savedNews.forEach(item => {
+                    addNewsItem(item.heading, item.content);
+                });
             } else {
                 addNewsItem(); 
             }
@@ -398,137 +510,606 @@
         }
 
         function resetStats() {
-            if(confirm("Statistik löschen?")) {
-                localStorage.setItem('savedServeStats', "{}");
+            if(confirm("Möchtest du die Statistik wirklich komplett löschen? Alle Zähler werden auf 0 gesetzt.")) {
                 document.getElementById('serveStats').value = "{}";
+                localStorage.setItem('savedServeStats', "{}");
+                localStorage.removeItem('lastGeneratedNames');
+            }
+        }
+
+        async function extractGroups() {
+            const apiKey = document.getElementById('apiKey').value;
+            const fileInput = document.getElementById('gruppenPlanFile');
+            const statusDiv = document.getElementById('extractStatus');
+            const btn = document.getElementById('btnExtract');
+
+            if(!apiKey) return alert("Bitte API-Schlüssel eingeben.");
+            if(fileInput.files.length === 0) return alert("Datei hochladen.");
+
+            btn.disabled = true;
+            statusDiv.innerText = "Lese Dokument... ⏳";
+
+            try {
+                const fileData = await readFileAsBase64(fileInput.files[0]);
+                const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ 
+                            parts: [
+                                { text: "Schreibe die gesamte Gruppeneinteilung (Welche Gruppe hat welche Mitglieder) aus diesem Dokument als übersichtlichen Text heraus." },
+                                { inlineData: { mimeType: fileData.mimeType, data: fileData.data } }
+                            ] 
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+                if(data.error) throw new Error(data.error.message);
+
+                document.getElementById('groupText').value = data.candidates[0].content.parts[0].text;
+                document.querySelector('details').open = true;
+                statusDiv.innerText = "Erfolgreich ausgelesen!";
+            } catch(e) {
+                statusDiv.innerText = "Fehler beim Auslesen.";
+                alert(e.message);
+            } finally {
+                btn.disabled = false;
             }
         }
 
         async function saveSettings() {
-            localStorage.setItem('geminiApiKey', document.getElementById('apiKey').value);
-            localStorage.setItem('fbProjectId', document.getElementById('fbProjectId').value);
-            localStorage.setItem('fbApiKey', document.getElementById('fbApiKey').value);
+            const apiKey = document.getElementById('apiKey').value;
+            const logoInput = document.getElementById('logoFile');
+            const statsInput = document.getElementById('serveStats').value;
+            const fbProjectId = document.getElementById('fbProjectId').value.trim();
+            
+            if(!apiKey) return alert("Bitte API-Schlüssel eingeben.");
+
+            try {
+                if(statsInput.trim() !== "") {
+                    JSON.parse(statsInput); 
+                    localStorage.setItem('savedServeStats', statsInput);
+                } else {
+                    localStorage.setItem('savedServeStats', "{}");
+                    document.getElementById('serveStats').value = "{}";
+                }
+            } catch(e) {
+                alert("Achtung: Die Statistik hat ein falsches Format! Bitte überprüfe, ob du versehentlich Klammern oder Anführungszeichen gelöscht hast. Die Einstellung wurde NICHT gespeichert.");
+                return;
+            }
+
+            localStorage.setItem('geminiApiKey', apiKey);
+            localStorage.setItem('fbProjectId', fbProjectId); // Speichere Firebase ID
             localStorage.setItem('savedGroupText', document.getElementById('groupText').value);
             localStorage.setItem('savedSheetsLink', document.getElementById('sheetsLink').value);
             localStorage.setItem('savedAlwaysTogether', document.getElementById('alwaysTogether').value);
-            
-            const stats = document.getElementById('serveStats').value;
-            localStorage.setItem('savedServeStats', stats);
+            localStorage.setItem('savedNeverTogether', document.getElementById('neverTogether').value);
 
-            const logoInput = document.getElementById('logoFile');
             if(logoInput.files.length > 0) {
-                const fileData = await readFileAsBase64(logoInput.files[0]);
-                localStorage.setItem('savedLogo', fileData.fullDataUri);
+                try {
+                    const fileData = await readFileAsBase64(logoInput.files[0]);
+                    localStorage.setItem('savedLogo', fileData.fullDataUri);
+                    document.getElementById('logoStatus').classList.remove('hidden');
+                } catch (e) {
+                    alert("Fehler beim Speichern des Logos.");
+                }
             }
             toggleSettings();
+            
+            // Wenn eine Firebase ID eingetragen wurde, synchronisiere einmal sofort
+            if (fbProjectId) {
+                manualFirebaseSync();
+            }
         }
 
         async function analyzeData() {
             const apiKey = localStorage.getItem('geminiApiKey');
             const groupText = document.getElementById('groupText').value;
             const sheetsLink = document.getElementById('sheetsLink').value.trim();
+            const alwaysTogether = document.getElementById('alwaysTogether').value;
+            const neverTogether = document.getElementById('neverTogether').value;
+            const currentStats = document.getElementById('serveStats').value;
+            
             const pfarrbriefInput = document.getElementById('pfarrbriefFile');
             const statusDiv = document.getElementById('status');
             const btn = document.getElementById('btnAnalyze');
 
-            if (!apiKey || !groupText) return alert("API-Key oder Gruppen fehlen!");
-            if (pfarrbriefInput.files.length === 0) return alert("Dateien wählen!");
+            if (!apiKey || !groupText) return alert("Bitte Einstellungen prüfen!");
+            if (pfarrbriefInput.files.length === 0) return alert("Bitte wähle mindestens eine Datei oder ein Foto aus!");
 
             btn.disabled = true;
-            statusDiv.innerHTML = "Analysiere... ⏳";
+            
+            let absencesCSV = "Keine Daten vorhanden";
+            if(sheetsLink) {
+                statusDiv.innerHTML = "Lade Abwesenheiten aus Google Sheets... ⏳";
+                try {
+                    if(sheetsLink.includes("/edit?usp=sharing")) throw new Error("Falscher Tabellen-Link");
+                    const res = await fetch(sheetsLink);
+                    if(!res.ok) throw new Error("Netzwerkfehler");
+                    absencesCSV = await res.text();
+                } catch(e) {
+                    alert("Fehler beim Laden der Google Tabelle! Bitte Link prüfen.");
+                    btn.disabled = false;
+                    statusDiv.innerHTML = "";
+                    return;
+                }
+            }
+
+            statusDiv.innerHTML = "Werte Pfarrbrief aus und verteile gerecht... Bitte warten ⏳";
 
             try {
                 const fileParts = [];
                 for (let i = 0; i < pfarrbriefInput.files.length; i++) {
                     const fileData = await readFileAsBase64(pfarrbriefInput.files[i]);
-                    fileParts.push({ inlineData: { mimeType: fileData.mimeType, data: fileData.data } });
+                    fileParts.push({
+                        inlineData: { mimeType: fileData.mimeType, data: fileData.data }
+                    });
                 }
 
-                let promptText = `Du bist ein Assistent für Messdienerpläne. Regeln: Nur Thalau, keine Schmalnau. Werktags 2, Sonntags 4 Personen. Beachte Statistik: ${localStorage.getItem('savedServeStats')}. (neu) darf nie alleine sein. Nur JSON Array zurückgeben.`;
+                let promptText = `Du bist ein hochpräziser Assistent für die Erstellung von Messdienerplänen. Lies die Dokumente/Fotos EXTREM GRÜNDLICH.
+
+                BASISDATEN:
+                - Gruppen: "${groupText}"
+                - Statistik (niedrige Zahl = bevorzugt einteilen): ${currentStats} (Ignoriere den Zusatz "(neu)" bei der Zahlenwertung)
+                - Abwesenheiten: "${absencesCSV}"
+                - Immer zusammen: "${alwaysTogether}"
+                - Nie zusammen: "${neverTogether}"
+                
+                RHYTHMUS IN THALAU (Zur Korrektur unscharfer Bilder):
+                - Di, Do, Fr: Meist 18:00 (Winter) oder 19:00 (Sommer).
+                - Sa: Meist 17:00 oder 18:00.
+                - So: Meist 09:00 oder 10:30.
+                (Vertraue aber immer primär dem gedruckten Text, besonders an Feiertagen!)
+
+                SCHRITT-FÜR-SCHRITT ANWEISUNGEN:
+                
+                SCHRITT 1: STRENGER ORTS-FILTER (NUR THALAU!)
+                - Du suchst im Pfarrbrief nach Gottesdiensten.
+                - Prüfe bei JEDEM erkannten Termin den Ort!
+                - Übernimm AUSSCHLIESSLICH Gottesdienste, die in "Thalau" stattfinden.
+                - Wenn dort "Schmalnau" (oder ein anderer Ort) steht, ÜBERSPRINGE DIESEN TERMIN KOMPLETT! Er darf unter keinen Umständen im Plan auftauchen!
+                - Erlaubte Typen: "Hl. Messe", "Gottesdienst", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem". (Keine Andachten).
+
+                SCHRITT 2: BEDARF & EINTEILUNG
+                - Werktags (Mo-Sa): 2 Personen. Sonntags: 4 Personen. (Ausnahmen: Taufe -> "Es werden 2 Freiwillige gesucht!", Hochzeit -> "Es werden 4 Freiwillige gesucht!").
+                - Bestimme die diensthabende Gruppe anhand der Überschriften.
+                - Prüfe Abwesenheiten: Niemanden einteilen, der laut CSV an dem Tag fehlt!
+                - "(neu)" REGEL: Anfänger (haben "(neu)" hinter dem Namen) dürfen NIE allein dienen. Werktags: max. 1 Anfänger. Sonntags: max. 2 Anfänger. Es muss immer ein Erfahrener (ohne "(neu)") dabei sein.
+                - GERECHTIGKEIT: Nimm die Personen mit der kleinsten Zahl in der Statistik. Herrscht Gleichstand, mische zufällig durch (sorge für Abwechslung!).
+                - MANGEL: Wenn zu wenige Personal verfügbar ist, fülle mit "1 Ersatz gesucht!" auf.
+
+                SCHRITT 3: VORSCHAU
+                - Welche Gruppe ist am LETZTEN Sonntag dieses Plans dran? (Das ist Gruppe X).
+                - Welche Gruppe folgt laut normaler Reihenfolge danach? (Das ist Gruppe Y).
+                - Schreibe in das "text" Feld AUSSCHLIESSLICH die zwei Gruppen, z.B.: "Gruppe X und Y". Bilde KEINE ganzen Sätze!
+                
+                GIB AUSSCHLIESSLICH EIN GÜLTIGES JSON-ARRAY ZURÜCK:
+                [
+                  {"art": "woche", "text": "Gruppe B: 22.02.2026 - 28.02.2026"},
+                  {"art": "gottesdienst", "wochentag": "Mittwoch", "datum": "18.02.2026", "typ": "Hl. Messe", "uhrzeit": "19.00", "messdiener": "Name 1, Name 2 (neu)"},
+                  {"art": "vorschau", "text": "Gruppe C und D"}
+                ]`;
 
                 const fetchPayload = {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ parts: [ { text: promptText }, ...fileParts ] }],
+                        contents: [{ 
+                            parts: [ { text: promptText }, ...fileParts ] 
+                        }],
                         generationConfig: { response_mime_type: "application/json" }
                     })
                 };
 
                 let response;
                 try {
-                    response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-pro-exp:generateContent?key=${apiKey}`, fetchPayload);
-                } catch (e) {
-                    response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, fetchPayload);
+                    response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, fetchPayload);
+                } catch (error) {
+                    console.log("Pro Modell Fehler, starte Fallback auf Flash:", error);
+                    statusDiv.innerHTML = "Haupt-Server überlastet. Wechsle automatisch zum High-Speed Modell... ⚡";
+                    response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, fetchPayload);
                 }
 
                 const data = await response.json();
+                if(data.error) throw new Error(data.error.message);
+
+                localStorage.removeItem('savedEditorData');
+                localStorage.removeItem('lastGeneratedNames');
+                
+                localStorage.removeItem('savedNewsData');
+                document.getElementById('newsContainer').innerHTML = '';
+                newsCount = 0;
+                addNewsItem();
+
                 const rawJson = data.candidates[0].content.parts[0].text;
                 renderEditor(JSON.parse(rawJson));
                 saveEditorState();
-                statusDiv.innerHTML = "Erfolgreich!";
+                
+                statusDiv.innerHTML = "<span style='color: var(--success);'>Erfolgreich erstellt!</span>";
                 document.getElementById('editorSection').classList.remove('hidden');
+
             } catch (error) {
-                statusDiv.innerHTML = "Fehler!";
-            } finally { btn.disabled = false; }
+                statusDiv.innerHTML = `<span style='color: var(--danger); text-align: left; display: inline-block; background: #ffebee; padding: 10px; border-radius: 8px; margin-top: 10px;'>Fehler: ${error.message}. Lade am besten Fotos (Screenshots) vom Pfarrbrief hoch.</span>`;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function getSortKey(item, originalIndex) {
+            if (item.art === 'vorschau') return "999999999999_" + String(originalIndex).padStart(4, '0');
+            
+            let dStr = "", tStr = "";
+            if (item.art === 'gottesdienst') {
+                dStr = item.datum || "";
+                tStr = item.uhrzeit || "";
+            } else if (item.art === 'woche') {
+                let m = item.text.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/);
+                if (m) {
+                    dStr = m[0];
+                    tStr = "00:00"; 
+                }
+            }
+            
+            let sortKey = "999999999999"; 
+            let mDate = dStr.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/);
+            if (mDate) {
+                let y = mDate[3] ? mDate[3] : String(new Date().getFullYear());
+                if (y.length === 2) y = "20" + y; 
+                let mon = mDate[2].padStart(2, '0');
+                let d = mDate[1].padStart(2, '0');
+                
+                let h = "23", m = "59";
+                if (item.art === 'gottesdienst') {
+                    let mTime = tStr.match(/(\d{1,2})[:.]?(\d{2})/);
+                    if (mTime) {
+                        h = mTime[1].padStart(2, '0');
+                        m = mTime[2];
+                    }
+                } else if (item.art === 'woche') {
+                    h = "00"; m = "00";
+                }
+                sortKey = `${y}${mon}${d}${h}${m}`;
+            }
+            return sortKey + "_" + String(originalIndex).padStart(4, '0');
+        }
+
+        function saveAndSortGottesdienst() {
+            saveEditorState();
+            let dataArray = JSON.parse(localStorage.getItem('savedEditorData') || "[]");
+            
+            dataArray.forEach(item => delete item.isNew);
+            
+            let mapped = dataArray.map((item, i) => {
+                return { item, key: getSortKey(item, i) };
+            });
+            
+            mapped.sort((a, b) => a.key.localeCompare(b.key));
+            dataArray = mapped.map(m => m.item);
+            
+            localStorage.setItem('savedEditorData', JSON.stringify(dataArray));
+            renderEditor(dataArray);
+        }
+
+        function addGottesdienst() {
+            saveEditorState();
+            let dataArray = JSON.parse(localStorage.getItem('savedEditorData') || "[]");
+            
+            let vorschauIndex = dataArray.findIndex(item => item.art === 'vorschau');
+            let newItem = {art: 'gottesdienst', wochentag: '', datum: '', typ: 'Hl. Messe', uhrzeit: '', messdiener: '', isNew: true};
+            
+            if (vorschauIndex !== -1) {
+                dataArray.splice(vorschauIndex, 0, newItem);
+            } else {
+                dataArray.push(newItem);
+            }
+            
+            renderEditor(dataArray);
+            saveEditorState();
         }
 
         function renderEditor(dataArray) {
             const container = document.getElementById('editorContainer');
             container.innerHTML = ''; 
-            dataArray.forEach(item => {
+            
+            dataArray.forEach((item, index) => {
                 if (item.art === 'woche') {
-                    container.innerHTML += `<div class="card editor-block" style="background:#E5E5EA; padding:12px;"><input type="hidden" class="art-input" value="woche"><input type="text" class="woche-text-input" value="${item.text}" style="width:100%; text-align:center; border:none; background:transparent; font-weight:bold;"></div>`;
+                    container.innerHTML += `
+                    <div class="card editor-block" style="background: #E5E5EA; padding: 12px; margin-top: 10px;">
+                        <input type="hidden" class="art-input" value="woche">
+                        <input type="hidden" class="is-new-input" value="${item.isNew ? 'true' : 'false'}">
+                        <input type="text" class="woche-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:600; text-align:center; background:transparent; border:none; font-size:16px;">
+                    </div>`;
                 } else if (item.art === 'vorschau') {
-                    container.innerHTML += `<div class="card editor-block" style="background:#e3f2fd; padding:12px; text-align:center;"><input type="hidden" class="art-input" value="vorschau"><label style="font-weight:bold;">Gruppen Vorschau:</label><input type="text" class="vorschau-text-input" value="${item.text}" style="width:100%; text-align:center; border:none; background:transparent; color:var(--primary);"></div>`;
+                    container.innerHTML += `
+                    <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px; display: flex; flex-direction: column; align-items: center;">
+                        <input type="hidden" class="art-input" value="vorschau">
+                        <input type="hidden" class="is-new-input" value="${item.isNew ? 'true' : 'false'}">
+                        <label style="font-size:18px; color:var(--text-main); font-weight:bold; text-align:center; margin-bottom:8px; width: 100%; display: block;">Gruppen Vorschau:</label>
+                        <input type="text" class="vorschau-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; display:block; font-weight:normal; text-align:center; background:transparent; border:none; font-size:16px; color: var(--primary); padding:0; margin:0 auto;">
+                    </div>`;
                 } else {
-                    container.innerHTML += `<div class="card editor-block">
+                    container.innerHTML += `
+                    <div class="card editor-block" style="margin-top: 10px;">
                         <input type="hidden" class="art-input" value="gottesdienst">
-                        <div class="editor-block-header"><span class="editor-block-title">Gottesdienst</span><button class="delete-btn" onclick="this.closest('.editor-block').remove(); saveEditorState();"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div>
-                        <div class="ios-list-row"><label>Tag</label><input type="text" class="wochentag-input" value="${item.wochentag}"></div>
-                        <div class="ios-list-row"><label>Datum</label><input type="text" class="datum-input" value="${item.datum}"></div>
-                        <div class="ios-list-row"><label>Typ</label><input type="text" class="typ-input" value="${item.typ}"></div>
-                        <div class="ios-list-row"><label>Uhrzeit</label><input type="text" class="uhrzeit-input" value="${item.uhrzeit}"></div>
-                        <div class="ios-list-row"><label>Messdiener</label><input type="text" class="messdiener-input" value="${item.messdiener}"></div>
+                        <input type="hidden" class="is-new-input" value="${item.isNew ? 'true' : 'false'}">
+                        <div class="editor-block-header">
+                            <span class="editor-block-title">Gottesdienst</span>
+                            <button class="delete-btn" onclick="this.closest('.editor-block').remove(); saveEditorState();" title="Löschen">
+                                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 6h18"></path>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="ios-list-row"><label>Tag</label><input type="text" class="wochentag-input" value="${item.wochentag || ''}" oninput="saveEditorState()" placeholder="z.B. Mittwoch"></div>
+                        <div class="ios-list-row"><label>Datum</label><input type="text" class="datum-input" value="${item.datum || ''}" oninput="saveEditorState()" placeholder="TT.MM.JJJJ"></div>
+                        <div class="ios-list-row"><label>Typ</label><input type="text" class="typ-input" value="${item.typ || 'Hl. Messe'}" oninput="saveEditorState()" placeholder="z.B. Hl. Messe"></div>
+                        <div class="ios-list-row"><label>Uhrzeit</label><input type="text" class="uhrzeit-input" value="${item.uhrzeit || ''}" oninput="saveEditorState()" placeholder="HH:MM"></div>
+                        <div class="ios-list-row"><label>Eingeteilte</label><input type="text" class="messdiener-input" value="${item.messdiener || ''}" oninput="saveEditorState()" placeholder="-"></div>
+                        ${item.isNew ? `<div style="padding: 12px 16px;"><button style="background-color: var(--success); margin-top: 0;" onclick="saveAndSortGottesdienst()">Speichern & Einsortieren</button></div>` : ''}
                     </div>`;
                 }
             });
+            container.dataset.count = dataArray.length;
+            
+            container.innerHTML += `
+                <div style="padding: 0 4px; padding-bottom:10px;">
+                    <button class="btn-secondary" style="width:100%; font-size:15px; margin-top:6px;" onclick="addGottesdienst()">+ Gottesdienst hinzufügen</button>
+                </div>
+            `;
+        }
+
+        function getFrequencies(arr) {
+            let freq = {};
+            arr.forEach(n => freq[n] = (freq[n] || 0) + 1);
+            return freq;
+        }
+
+        function cleanNameForStats(name) {
+            return name.replace(/\s*\(neu\)/gi, '').trim();
         }
 
         async function generatePDF() {
-            saveEditorState();
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            let y = 20;
+            try {
+                saveEditorState();
+                
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                let y = 15;
+                const margin = 20;
 
-            const editorData = JSON.parse(localStorage.getItem('savedEditorData'));
-            let currentNames = [];
-
-            editorData.forEach(item => {
-                if (item.art === 'gottesdienst') {
-                    doc.setFontSize(12); doc.setFont("helvetica", "bold");
-                    doc.text(`${item.wochentag} ${item.datum} ${item.uhrzeit}`, 20, y);
-                    y += 7; doc.setFont("helvetica", "normal");
-                    const names = item.messdiener.split(',').map(n => n.trim());
-                    names.forEach(n => {
-                        const clean = n.replace(/\s*\(neu\)/gi, '');
-                        doc.text(clean, 25, y); y += 6;
-                        if (!n.toLowerCase().includes("ersatz")) currentNames.push(clean);
-                    });
-                    y += 5;
+                const savedLogo = localStorage.getItem('savedLogo');
+                if (savedLogo) {
+                    try {
+                        const format = savedLogo.includes('image/png') ? 'PNG' : 'JPEG';
+                        doc.addImage(savedLogo, format, 88, y, 34, 34);
+                        y += 48; 
+                    } catch(imgErr) {
+                        console.error("Logo Fehler:", imgErr);
+                        y += 15; 
+                    }
+                } else {
+                    y += 15;
                 }
-                if (y > 270) { doc.addPage(); y = 20; }
-            });
 
-            // Statistik Update
-            let stats = JSON.parse(localStorage.getItem('savedServeStats') || "{}");
-            currentNames.forEach(n => stats[n] = (stats[n] || 0) + 1);
-            localStorage.setItem('savedServeStats', JSON.stringify(stats));
-            
-            // FIREBASE AUTO-UPLOAD
-            await firebaseRequest('PATCH', stats);
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(22);
+                doc.text("Einteilung der Messdiener/innen", 105, y, { align: "center" });
+                y += 16; 
 
-            doc.save("Messdienerplan.pdf");
+                const editorData = JSON.parse(localStorage.getItem('savedEditorData') || "[]");
+                
+                let currentNamesToServe = [];
+                let vorschauTextSaved = "";
+
+                for(let i = 0; i < editorData.length; i++) {
+                    const item = editorData[i];
+                    const art = item.art;
+
+                    if (art === 'vorschau') {
+                        vorschauTextSaved = item.text;
+                        continue;
+                    }
+
+                    if (art === 'woche') {
+                        if (y > 222) { doc.addPage(); y = 20; }
+                        else { y += 4; }
+                        
+                        doc.setFont("helvetica", "bold");
+                        doc.setFontSize(14);
+                        doc.text(item.text, 105, y, { align: "center" });
+                        y += 10;
+                    } 
+                    else if (art === 'gottesdienst') {
+                        let requiredHeight = 8; 
+                        let namesArray = [];
+                        if (item.messdiener && item.messdiener !== "-") {
+                            namesArray = item.messdiener.split(',').map(n => n.trim()).filter(n => n);
+                            requiredHeight += (namesArray.length > 0 ? namesArray.length * 6 : 6);
+                        } else {
+                            requiredHeight += 6;
+                        }
+                        requiredHeight += 6; 
+                        
+                        if (y + requiredHeight > 277) {
+                            doc.addPage();
+                            y = 20;
+                        }
+
+                        const headline = `${item.wochentag} ${item.datum} ${item.typ} ${item.uhrzeit} Uhr`;
+                        doc.setFont("helvetica", "bold");
+                        doc.setFontSize(12);
+                        doc.text(headline, margin, y);
+                        y += 8;
+
+                        doc.setFont("helvetica", "normal");
+                        if (namesArray.length > 0) {
+                            namesArray.forEach(name => {
+                                const cleanName = cleanNameForStats(name); 
+                                
+                                doc.text(cleanName, margin, y);
+                                y += 6;
+                                
+                                const nameLower = cleanName.toLowerCase();
+                                if (!nameLower.includes("freiwillige") && !nameLower.includes("ersatz")) {
+                                    currentNamesToServe.push(cleanName);
+                                }
+                            });
+                        } else {
+                            doc.text("-", margin, y);
+                            y += 6;
+                        }
+                        y += 6; 
+                    }
+                }
+
+                y += 4; 
+                if (y > 275) { doc.addPage(); y = 20; }
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(12);
+                doc.setTextColor(0, 0, 0); 
+                doc.text("Wer eingeteilt ist und nicht dienen kann, sucht sich bitte selbstständig eine Vertretung!", 105, y, { align: "center" });
+                y += 22; 
+
+                const newsItems = [];
+                for (let i = 0; i < newsCount; i++) {
+                    const hElem = document.getElementById(`newsHeading_${i}`);
+                    const cElem = document.getElementById(`newsContent_${i}`);
+                    if (hElem && cElem) {
+                        const h = hElem.value.trim();
+                        const c = cElem.value.trim();
+                        if (h !== "" || c !== "") newsItems.push({ heading: h, content: c });
+                    }
+                }
+
+                if (newsItems.length > 0) {
+                    if (y > 250) { doc.addPage(); y = 20; }
+                    
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(16);
+                    doc.text("News & Ankündigungen", 105, y, { align: "center" });
+                    y += 12;
+                    
+                    newsItems.forEach(item => {
+                        if (y > 260) { doc.addPage(); y = 20; }
+                        if (item.heading) {
+                            doc.setFont("helvetica", "bold");
+                            doc.setFontSize(13);
+                            doc.text(item.heading, margin, y);
+                            y += 6;
+                        }
+                        if (item.content) {
+                            doc.setFont("helvetica", "normal");
+                            doc.setFontSize(11);
+                            const splitNews = doc.splitTextToSize(item.content, 170);
+                            doc.text(splitNews, margin, y);
+                            y += (splitNews.length * 5) + 4;
+                        }
+                        y += 4; 
+                    });
+                    y += 6; 
+                }
+
+                let formText = "";
+                let vorschauClean = vorschauTextSaved ? vorschauTextSaved.trim() : "";
+                
+                if (vorschauClean !== "") {
+                    if (vorschauClean.toLowerCase().includes("in den kommenden")) {
+                        formText = vorschauClean + (vorschauClean.endsWith('.') ? " " : ". ") + "Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:";
+                    } else {
+                        formText = `In den kommenden zwei Wochen sind ${vorschauClean} dran. Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:`;
+                    }
+                } else {
+                    formText = "Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:";
+                }
+                
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(11);
+                const splitFormText = doc.splitTextToSize(formText, 150);
+                
+                const boxPadding = 10;
+                const headingHeight = 8;
+                const textHeight = splitFormText.length * 5;
+                const spacing = 4;
+                const buttonHeight = 10; 
+                const buttonWidth = 46; 
+                const boxHeight = boxPadding + headingHeight + textHeight + spacing + buttonHeight + boxPadding; 
+                
+                if (y + boxHeight > 280) { doc.addPage(); y = 20; }
+                
+                doc.setFillColor(245, 245, 245);
+                doc.roundedRect(20, y, 170, boxHeight, 5, 5, 'F');
+                
+                let currentY = y + boxPadding + 4;
+                
+                doc.setTextColor(0, 0, 0);
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(14);
+                doc.text("Abwesenheiten eintragen", 105, currentY, { align: "center" });
+                currentY += 8;
+                
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(11);
+                splitFormText.forEach(line => {
+                    doc.text(line, 105, currentY, { align: "center" });
+                    currentY += 5;
+                });
+                
+                const buttonY = currentY + 3; 
+                doc.setFillColor(0, 122, 255);
+                doc.roundedRect(105 - (buttonWidth / 2), buttonY, buttonWidth, buttonHeight, 3, 3, 'F'); 
+                
+                doc.setTextColor(255, 255, 255);
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(11);
+                doc.text("Zum Formular", 105, buttonY + 6.5, { align: "center" });
+                doc.link(105 - (buttonWidth / 2), buttonY, buttonWidth, buttonHeight, { url: 'https://forms.gle/nSzhoDgeAhUS4QG16' });
+                
+                doc.setTextColor(0, 0, 0); 
+
+                let lastGeneratedNames = JSON.parse(localStorage.getItem('lastGeneratedNames') || "[]");
+                let serveStats = JSON.parse(localStorage.getItem('savedServeStats') || "{}");
+                
+                let currentFreq = getFrequencies(currentNamesToServe);
+                let lastFreq = getFrequencies(lastGeneratedNames);
+
+                for (let name in lastFreq) {
+                    serveStats[name] = (serveStats[name] || 0) - lastFreq[name];
+                    if (serveStats[name] < 0) serveStats[name] = 0; 
+                }
+                for (let name in currentFreq) {
+                    serveStats[name] = (serveStats[name] || 0) + currentFreq[name];
+                }
+
+                document.getElementById('serveStats').value = JSON.stringify(serveStats, null, 2);
+                localStorage.setItem('savedServeStats', JSON.stringify(serveStats));
+                localStorage.setItem('lastGeneratedNames', JSON.stringify(currentNamesToServe));
+                
+                // --- FIREBASE AUTO-UPLOAD BEIM PDF ERSTELLEN ---
+                if (localStorage.getItem('fbProjectId')) {
+                    await firebaseRequest('PATCH', serveStats);
+                }
+
+                const pdfBlob = doc.output('blob');
+                const file = new File([pdfBlob], "Messdienerplan.pdf", { type: "application/pdf" });
+
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    navigator.share({
+                        files: [file]
+                    }).catch((error) => {
+                        console.log('Teilen abgebrochen', error);
+                    });
+                } else {
+                    doc.save("Messdienerplan.pdf");
+                    alert("PDF heruntergeladen.");
+                }
+            } catch (err) {
+                alert("Fehler beim Erstellen des PDFs! Details: " + err.message);
+                console.error("PDF Crash:", err);
+            }
         }
     </script>
 </body>
