@@ -18,7 +18,7 @@
     <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=2">
     <link rel="shortcut icon" href="icon.png?v=2">
 
-    <title>Messdienerplan v24.1</title>
+    <title>Messdienerplan v24.2</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -114,7 +114,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v24.1</span>
+            <span class="version">v24.2</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -225,16 +225,15 @@
     <script>
         let newsCount = 0;
 
-        // --- FIREBASE SYNC LOGIK (OHNE API KEY) ---
+        // --- FIREBASE SYNC LOGIK (ANGEPASST AUF INT64 STRUKTUR) ---
         async function firebaseRequest(method, data = null) {
-            // Hole die Projekt-ID aus dem Feld (oder LocalStorage)
             const projectIdElement = document.getElementById('fbProjectId');
             const projectId = projectIdElement ? projectIdElement.value.trim() : localStorage.getItem('fbProjectId');
             
             if (!projectId) return null;
 
-            // REST API Endpoint ohne "?key="
-            let url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/messdienerplan/statistik`;
+            // Neuer Endpunkt: Sammlung "messdiener", Dokument "statistik"
+            let url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/messdiener/statistik`;
 
             const options = {
                 method: method,
@@ -242,16 +241,22 @@
             };
 
             if (data) {
-                options.body = JSON.stringify({
-                    fields: {
-                        json: { stringValue: JSON.stringify(data) },
-                        updated: { timestampValue: new Date().toISOString() }
-                    }
-                });
+                // Lokales JSON-Objekt in Firestore int64 Format (integerValue) umwandeln
+                const firestoreFields = {};
+                let maskParams = [];
                 
-                if (method === 'PATCH') {
-                    // Update Maske ist für PATCH in Firestore zwingend erforderlich
-                    url += '?updateMask.fieldPaths=json&updateMask.fieldPaths=updated';
+                for (const [key, value] of Object.entries(data)) {
+                    firestoreFields[key] = { integerValue: String(value) };
+                    
+                    // Für Firestore Patch UpdateMask: Leerzeichen benötigen Backticks im Feldnamen
+                    const fieldPath = /^[a-zA-Z0-9_]+$/.test(key) ? key : `\`${key}\``;
+                    maskParams.push(`updateMask.fieldPaths=${encodeURIComponent(fieldPath)}`);
+                }
+                
+                options.body = JSON.stringify({ fields: firestoreFields });
+                
+                if (method === 'PATCH' && maskParams.length > 0) {
+                    url += '?' + maskParams.join('&');
                 }
             }
 
@@ -262,7 +267,18 @@
                     return null;
                 }
                 const result = await response.json();
-                return result.fields ? JSON.parse(result.fields.json.stringValue) : null;
+                
+                // Firestore Format (integerValue) zurück in flaches JS Objekt umwandeln
+                if (method === 'GET' && result.fields) {
+                    const parsedData = {};
+                    for (const [key, fieldObj] of Object.entries(result.fields)) {
+                        if (fieldObj.integerValue !== undefined) {
+                            parsedData[key] = parseInt(fieldObj.integerValue, 10);
+                        }
+                    }
+                    return parsedData;
+                }
+                return result;
             } catch (e) {
                 console.error("Firebase Error:", e);
                 return null;
@@ -283,7 +299,7 @@
             // Versuche Daten aus der Cloud zu laden
             const remoteData = await firebaseRequest('GET');
             
-            if (remoteData) {
+            if (remoteData && Object.keys(remoteData).length > 0) {
                 // Cloud-Daten existieren -> Lokal überschreiben
                 localStorage.setItem('savedServeStats', JSON.stringify(remoteData));
                 document.getElementById('serveStats').value = JSON.stringify(remoteData, null, 2);
@@ -466,7 +482,6 @@
                 document.getElementById('uploadCard').classList.add('hidden');
             }
             
-            // Firebase ID laden
             if(localStorage.getItem('fbProjectId')) {
                 document.getElementById('fbProjectId').value = localStorage.getItem('fbProjectId');
             }
@@ -479,10 +494,10 @@
             
             document.getElementById('serveStats').value = localStorage.getItem('savedServeStats') || "{}";
             
-            // AUTOMATISCHER SYNC BEIM START (falls ID vorhanden)
+            // AUTOMATISCHER SYNC BEIM START
             if (localStorage.getItem('fbProjectId')) {
                 const remoteData = await firebaseRequest('GET');
-                if (remoteData) {
+                if (remoteData && Object.keys(remoteData).length > 0) {
                     localStorage.setItem('savedServeStats', JSON.stringify(remoteData));
                     document.getElementById('serveStats').value = JSON.stringify(remoteData, null, 2);
                 }
@@ -580,7 +595,7 @@
             }
 
             localStorage.setItem('geminiApiKey', apiKey);
-            localStorage.setItem('fbProjectId', fbProjectId); // Speichere Firebase ID
+            localStorage.setItem('fbProjectId', fbProjectId); 
             localStorage.setItem('savedGroupText', document.getElementById('groupText').value);
             localStorage.setItem('savedSheetsLink', document.getElementById('sheetsLink').value);
             localStorage.setItem('savedAlwaysTogether', document.getElementById('alwaysTogether').value);
@@ -597,7 +612,6 @@
             }
             toggleSettings();
             
-            // Wenn eine Firebase ID eingetragen wurde, synchronisiere einmal sofort
             if (fbProjectId) {
                 manualFirebaseSync();
             }
