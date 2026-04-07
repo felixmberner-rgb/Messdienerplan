@@ -9,7 +9,6 @@
     <meta name="application-name" content="Messdienerplan">
     <meta name="theme-color" content="#F2F2F7">
     
-    <!-- MAXIMAL SICHERE APP ICON VERKNÜPFUNGEN MIT CACHE-BUSTER -->
     <link rel="apple-touch-icon" href="icon.png?v=2">
     <link rel="apple-touch-icon" sizes="152x152" href="icon.png?v=2">
     <link rel="apple-touch-icon" sizes="180x180" href="icon.png?v=2">
@@ -18,7 +17,7 @@
     <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=2">
     <link rel="shortcut icon" href="icon.png?v=2">
 
-    <title>Messdienerplan v24.2</title>
+    <title>Messdienerplan v24.3</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -114,7 +113,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdienerplan</h1>
-            <span class="version">v24.2</span>
+            <span class="version">v24.3</span>
         </div>
         <button class="settings-btn" onclick="toggleSettings()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -135,7 +134,7 @@
         <div class="ios-input-group">
             <label>Firebase Projekt-ID (Cloud Sync)</label>
             <input type="text" id="fbProjectId" placeholder="z.B. messdienerplan-b8c62">
-            <button class="btn-secondary" style="margin-top:10px;" onclick="manualFirebaseSync()">🔄 Daten jetzt synchronisieren</button>
+            <button class="btn-secondary" style="margin-top:10px;" onclick="manualFirebaseSync()">🔄 Aus Cloud laden / Sync</button>
             <span id="fbStatus" style="font-size:12px; color:var(--primary); margin-top:6px; text-align: center;"></span>
         </div>
         
@@ -193,7 +192,7 @@
                 </div>
             </details>
 
-            <button onclick="saveSettings()" style="background-color: var(--success); margin-top: 16px;">Speichern</button>
+            <button onclick="saveSettings()" style="background-color: var(--success); margin-top: 16px;">💾 Speichern & in Cloud hochladen</button>
         </div>
     </div>
 
@@ -225,56 +224,123 @@
     <script>
         let newsCount = 0;
 
-        // --- FIREBASE SYNC LOGIK (ANGEPASST AUF INT64 STRUKTUR) ---
-        async function firebaseRequest(method, data = null) {
+        // --- HILFSFUNKTIONEN FÜR JSON <-> TEXT KONVERTIERUNG ---
+        
+        function generateUUID() {
+            if (crypto && crypto.randomUUID) return crypto.randomUUID();
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        // 1. REGELN
+        function rulesToJSON(text) {
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+            const arr = lines.map(line => {
+                let parts = line.split(/\s+und\s+|\s*&\s*|\s*,\s*/i);
+                if (parts.length >= 2) return { id: generateUUID(), p1: parts[0].trim(), p2: parts[1].trim() };
+                return null;
+            }).filter(Boolean);
+            return JSON.stringify(arr);
+        }
+
+        function jsonToRules(jsonStr) {
+            if(!jsonStr) return "";
+            try {
+                const arr = JSON.parse(jsonStr || "[]");
+                return arr.map(item => `${item.p1} und ${item.p2}`).join('\n');
+            } catch(e) { return ""; }
+        }
+
+        // 2. GRUPPEN
+        function groupsToJSON(text) {
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+            let groups = [];
+            let neueMinis = [];
+            let currentGroup = null;
+
+            lines.forEach(line => {
+                if (/^gruppe/i.test(line)) {
+                    let gName = line.replace(/^gruppe\s*/i, '').replace(':', '').trim();
+                    currentGroup = { id: generateUUID(), name: gName, mitglieder: [] };
+                    groups.push(currentGroup);
+                } else if (currentGroup && line) {
+                    let isNeu = /\(neu\)/i.test(line);
+                    let cleanName = line.replace(/\s*\(neu\)/gi, '').trim();
+                    currentGroup.mitglieder.push(cleanName);
+                    if (isNeu && !neueMinis.includes(cleanName)) neueMinis.push(cleanName);
+                }
+            });
+            return {
+                gruppenJson: JSON.stringify(groups),
+                neueMessdienerJson: JSON.stringify(neueMinis)
+            };
+        }
+
+        function jsonToGroups(gruppenJson, neueJson) {
+            if(!gruppenJson) return "";
+            try {
+                const groups = JSON.parse(gruppenJson || "[]");
+                const neueMinis = JSON.parse(neueJson || "[]");
+                let result = [];
+
+                groups.forEach(g => {
+                    result.push(`Gruppe ${g.name}`);
+                    g.mitglieder.forEach(m => {
+                        if(neueMinis.includes(m)) result.push(`${m} (neu)`);
+                        else result.push(m);
+                    });
+                    result.push(""); // Leerzeile
+                });
+                return result.join('\n').trim();
+            } catch(e) { return ""; }
+        }
+
+        // --- FIREBASE SYNC LOGIK (API-Key less REST, Int64 & JSON Strings) ---
+        async function firebaseRequest(docName, method, payloadType, data = null) {
             const projectIdElement = document.getElementById('fbProjectId');
             const projectId = projectIdElement ? projectIdElement.value.trim() : localStorage.getItem('fbProjectId');
-            
             if (!projectId) return null;
 
-            // Neuer Endpunkt: Sammlung "messdiener", Dokument "statistik"
-            let url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/messdiener/statistik`;
+            let url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/messdiener/${docName}`;
 
             const options = {
                 method: method,
                 headers: { 'Content-Type': 'application/json' }
             };
 
-            if (data) {
-                // Lokales JSON-Objekt in Firestore int64 Format (integerValue) umwandeln
+            if (data && method === 'PATCH') {
                 const firestoreFields = {};
                 let maskParams = [];
-                
-                for (const [key, value] of Object.entries(data)) {
-                    firestoreFields[key] = { integerValue: String(value) };
-                    
-                    // Für Firestore Patch UpdateMask: Leerzeichen benötigen Backticks im Feldnamen
-                    const fieldPath = /^[a-zA-Z0-9_]+$/.test(key) ? key : `\`${key}\``;
-                    maskParams.push(`updateMask.fieldPaths=${encodeURIComponent(fieldPath)}`);
+
+                if (payloadType === 'int64Map') {
+                    for (const [key, value] of Object.entries(data)) {
+                        firestoreFields[key] = { integerValue: String(value) };
+                        const fieldPath = /^[a-zA-Z0-9_]+$/.test(key) ? key : `\`${key}\``;
+                        maskParams.push(`updateMask.fieldPaths=${encodeURIComponent(fieldPath)}`);
+                    }
+                } else if (payloadType === 'jsonStrings') {
+                    for (const [key, value] of Object.entries(data)) {
+                        firestoreFields[key] = { stringValue: value }; 
+                        maskParams.push(`updateMask.fieldPaths=${key}`);
+                    }
                 }
-                
+
                 options.body = JSON.stringify({ fields: firestoreFields });
-                
-                if (method === 'PATCH' && maskParams.length > 0) {
-                    url += '?' + maskParams.join('&');
-                }
+                if (maskParams.length > 0) url += '?' + maskParams.join('&');
             }
 
             try {
                 const response = await fetch(url, options);
-                if (!response.ok) {
-                    console.log("Firebase Response Error:", response.status);
-                    return null;
-                }
+                if (!response.ok) return null;
                 const result = await response.json();
                 
-                // Firestore Format (integerValue) zurück in flaches JS Objekt umwandeln
                 if (method === 'GET' && result.fields) {
                     const parsedData = {};
                     for (const [key, fieldObj] of Object.entries(result.fields)) {
-                        if (fieldObj.integerValue !== undefined) {
-                            parsedData[key] = parseInt(fieldObj.integerValue, 10);
-                        }
+                        if (fieldObj.integerValue !== undefined) parsedData[key] = parseInt(fieldObj.integerValue, 10);
+                        else if (fieldObj.stringValue !== undefined) parsedData[key] = fieldObj.stringValue;
                     }
                     return parsedData;
                 }
@@ -285,37 +351,107 @@
             }
         }
 
+        // Manueller PULL (Lädt aus der Cloud)
         async function manualFirebaseSync() {
             const status = document.getElementById('fbStatus');
             const projectId = document.getElementById('fbProjectId').value.trim();
             
             if(!projectId) {
-                status.innerText = "Bitte zuerst eine Projekt-ID eingeben!";
-                return;
+                status.innerText = "Bitte zuerst Projekt-ID eingeben!"; return;
             }
-            
-            status.innerText = "Synchronisiere mit der Cloud... ⏳";
-            
-            // Versuche Daten aus der Cloud zu laden
-            const remoteData = await firebaseRequest('GET');
-            
-            if (remoteData && Object.keys(remoteData).length > 0) {
-                // Cloud-Daten existieren -> Lokal überschreiben
-                localStorage.setItem('savedServeStats', JSON.stringify(remoteData));
-                document.getElementById('serveStats').value = JSON.stringify(remoteData, null, 2);
-                status.innerText = "✅ Daten erfolgreich aus der Cloud geladen!";
+            status.innerText = "Lade aus der Cloud... ⏳";
+            let gotData = false;
+
+            // 1. STATISTIK
+            const remoteStats = await firebaseRequest('statistik', 'GET', 'int64Map');
+            if (remoteStats && Object.keys(remoteStats).length > 0) {
+                localStorage.setItem('savedServeStats', JSON.stringify(remoteStats));
+                document.getElementById('serveStats').value = JSON.stringify(remoteStats, null, 2);
+                gotData = true;
+            }
+
+            // 2. REGELN
+            const remoteRegeln = await firebaseRequest('regeln', 'GET', 'jsonStrings');
+            if (remoteRegeln && (remoteRegeln.immerZusammenJson || remoteRegeln.nieZusammenJson)) {
+                const iz = jsonToRules(remoteRegeln.immerZusammenJson);
+                const nz = jsonToRules(remoteRegeln.nieZusammenJson);
+                document.getElementById('alwaysTogether').value = iz;
+                document.getElementById('neverTogether').value = nz;
+                localStorage.setItem('savedAlwaysTogether', iz);
+                localStorage.setItem('savedNeverTogether', nz);
+                gotData = true;
+            }
+
+            // 3. GRUPPEN
+            const remoteGruppen = await firebaseRequest('gruppen', 'GET', 'jsonStrings');
+            if (remoteGruppen && remoteGruppen.gruppenJson) {
+                const grpText = jsonToGroups(remoteGruppen.gruppenJson, remoteGruppen.neueMessdienerJson);
+                document.getElementById('groupText').value = grpText;
+                localStorage.setItem('savedGroupText', grpText);
+                gotData = true;
+            }
+
+            if (gotData) {
+                status.innerText = "✅ Erfolgreich synchronisiert (Mac -> Web)!";
             } else {
-                // Cloud-Daten existieren nicht (oder leer) -> Lokale Daten hochladen
-                const localDataString = document.getElementById('serveStats').value || "{}";
-                let localData = {};
-                try { localData = JSON.parse(localDataString); } catch(e) {}
-                
-                await firebaseRequest('PATCH', localData);
-                status.innerText = "✅ Lokale Daten in die Cloud hochgeladen!";
+                status.innerText = "☁️ Cloud ist leer. Drücke auf Speichern zum Hochladen.";
             }
+            setTimeout(() => { status.innerText = ""; }, 4000);
+        }
+
+        // PUSH (Schiebt alles in die Cloud)
+        async function pushToFirebase() {
+            const status = document.getElementById('fbStatus');
+            if(!document.getElementById('fbProjectId').value.trim()) return;
             
-            // Nach 3 Sekunden Status wieder ausblenden
-            setTimeout(() => { status.innerText = ""; }, 3000);
+            status.innerText = "Speichere in Cloud... ⏳";
+
+            // 1. Statistik
+            const localStatsString = document.getElementById('serveStats').value || "{}";
+            let localStats = {};
+            try { localStats = JSON.parse(localStatsString); } catch(e) {}
+            await firebaseRequest('statistik', 'PATCH', 'int64Map', localStats);
+
+            // 2. Regeln
+            const izData = rulesToJSON(document.getElementById('alwaysTogether').value);
+            const nzData = rulesToJSON(document.getElementById('neverTogether').value);
+            await firebaseRequest('regeln', 'PATCH', 'jsonStrings', {
+                immerZusammenJson: izData,
+                nieZusammenJson: nzData
+            });
+
+            // 3. Gruppen
+            const grpData = groupsToJSON(document.getElementById('groupText').value);
+            await firebaseRequest('gruppen', 'PATCH', 'jsonStrings', grpData);
+
+            status.innerText = "✅ Alle Daten sicher in der Cloud (Web -> Mac)!";
+            setTimeout(() => { status.innerText = ""; }, 4000);
+        }
+
+        // Stiller Sync beim Start
+        async function silentFirebasePull() {
+            if(!localStorage.getItem('fbProjectId')) return;
+            
+            const remoteStats = await firebaseRequest('statistik', 'GET', 'int64Map');
+            if (remoteStats && Object.keys(remoteStats).length > 0) {
+                localStorage.setItem('savedServeStats', JSON.stringify(remoteStats));
+                document.getElementById('serveStats').value = JSON.stringify(remoteStats, null, 2);
+            }
+            const remoteRegeln = await firebaseRequest('regeln', 'GET', 'jsonStrings');
+            if (remoteRegeln && (remoteRegeln.immerZusammenJson || remoteRegeln.nieZusammenJson)) {
+                const iz = jsonToRules(remoteRegeln.immerZusammenJson);
+                const nz = jsonToRules(remoteRegeln.nieZusammenJson);
+                document.getElementById('alwaysTogether').value = iz;
+                document.getElementById('neverTogether').value = nz;
+                localStorage.setItem('savedAlwaysTogether', iz);
+                localStorage.setItem('savedNeverTogether', nz);
+            }
+            const remoteGruppen = await firebaseRequest('gruppen', 'GET', 'jsonStrings');
+            if (remoteGruppen && remoteGruppen.gruppenJson) {
+                const grpText = jsonToGroups(remoteGruppen.gruppenJson, remoteGruppen.neueMessdienerJson);
+                document.getElementById('groupText').value = grpText;
+                localStorage.setItem('savedGroupText', grpText);
+            }
         }
         // -----------------------------------------
 
@@ -494,14 +630,8 @@
             
             document.getElementById('serveStats').value = localStorage.getItem('savedServeStats') || "{}";
             
-            // AUTOMATISCHER SYNC BEIM START
-            if (localStorage.getItem('fbProjectId')) {
-                const remoteData = await firebaseRequest('GET');
-                if (remoteData && Object.keys(remoteData).length > 0) {
-                    localStorage.setItem('savedServeStats', JSON.stringify(remoteData));
-                    document.getElementById('serveStats').value = JSON.stringify(remoteData, null, 2);
-                }
-            }
+            // PULL BEIM START
+            await silentFirebasePull();
             
             const savedEditor = localStorage.getItem('savedEditorData');
             if (savedEditor && savedEditor !== "[]") {
@@ -613,7 +743,7 @@
             toggleSettings();
             
             if (fbProjectId) {
-                manualFirebaseSync();
+                await pushToFirebase();
             }
         }
 
@@ -1102,9 +1232,9 @@
                 localStorage.setItem('savedServeStats', JSON.stringify(serveStats));
                 localStorage.setItem('lastGeneratedNames', JSON.stringify(currentNamesToServe));
                 
-                // --- FIREBASE AUTO-UPLOAD BEIM PDF ERSTELLEN ---
+                // STATISTIK PUSH NACH GENERIERUNG
                 if (localStorage.getItem('fbProjectId')) {
-                    await firebaseRequest('PATCH', serveStats);
+                    await firebaseRequest('statistik', 'PATCH', 'int64Map', serveStats);
                 }
 
                 const pdfBlob = doc.output('blob');
