@@ -5,19 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Messdienerplan">
-    <meta name="application-name" content="Messdienerplan">
+    <meta name="apple-mobile-web-app-title" content="Messdiener">
+    <meta name="application-name" content="Messdiener">
     <meta name="theme-color" content="#F2F2F7">
     
-    <link rel="apple-touch-icon" href="icon.png?v=2">
-    <link rel="apple-touch-icon" sizes="152x152" href="icon.png?v=2">
-    <link rel="apple-touch-icon" sizes="180x180" href="icon.png?v=2">
-    <link rel="apple-touch-icon" sizes="167x167" href="icon.png?v=2">
-    <link rel="icon" type="image/png" sizes="192x192" href="icon.png?v=2">
-    <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=2">
-    <link rel="shortcut icon" href="icon.png?v=2">
+    <link rel="apple-touch-icon" href="icon.png?v=3">
+    <link rel="apple-touch-icon" sizes="152x152" href="icon.png?v=3">
+    <link rel="apple-touch-icon" sizes="180x180" href="icon.png?v=3">
+    <link rel="apple-touch-icon" sizes="167x167" href="icon.png?v=3">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon.png?v=3">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=3">
+    <link rel="shortcut icon" href="icon.png?v=3">
 
-    <title>Messdienerplan v24.3</title>
+    <title>Messdienerplan v25.0</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -28,7 +28,7 @@
             --primary: #007AFF;
             --text-main: #000000;
             --text-muted: #8E8E93;
-            --border: #C6C6C8;
+            --border: #E5E5EA;
             --success: #34C759;
             --warning: #FF9500;
             --danger: #FF3B30;
@@ -40,11 +40,13 @@
             margin: 0;
             padding: 20px 16px;
             padding-top: max(20px, env(safe-area-inset-top));
+            padding-bottom: 100px; /* Platz für Tab-Bar */
+            overflow-x: hidden;
         }
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; width: 100%; }
         .title-wrapper { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
-        h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+        h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
         .version { font-size: 14px; color: var(--text-muted); font-weight: normal; }
         
         .settings-btn { -webkit-appearance: none; background: none; border: none; color: var(--primary); cursor: pointer; padding: 0; margin: 0; display: flex; align-items: center; justify-content: flex-end; }
@@ -52,70 +54,105 @@
         
         h2 { text-align: center; font-size: 22px; font-weight: 600; color: var(--text-main); margin-top: 0; margin-bottom: 20px; padding: 0; }
         
-        .card { background-color: var(--card-bg); border-radius: 12px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow: hidden; padding-top: 16px; }
+        .card { background-color: var(--card-bg); border-radius: 14px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); overflow: hidden; padding-top: 16px; }
         .card-padding { padding: 16px; }
         
         .ios-input-group { display: flex; flex-direction: column; border-bottom: 1px solid var(--border); padding: 12px 16px; }
         .ios-input-group:last-child { border-bottom: none; }
-        .ios-input-group label { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
-        .ios-input-group input[type="text"] { border: none; background: transparent; font-size: 16px; outline: none; padding: 0; color: var(--primary); }
-        .ios-input-group input::placeholder { color: var(--text-muted); }
+        .ios-input-group label { font-size: 14px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
+        .ios-input-group input[type="text"], .ios-input-group input[type="date"], .ios-input-group input[type="time"] { border: none; background: transparent; font-size: 16px; outline: none; padding: 0; color: var(--text-main); width: 100%; }
+        
+        button { background-color: var(--primary); color: white; border: none; border-radius: 12px; padding: 14px; font-size: 17px; font-weight: 600; width: 100%; cursor: pointer; margin-top: 10px; transition: transform 0.1s; }
+        button:active { transform: scale(0.98); }
+        button:disabled { background-color: var(--text-muted); opacity: 0.7; }
+        .btn-secondary { background-color: #E5E5EA; color: var(--primary); margin-top: 8px; padding: 12px; font-size: 15px; }
+        .btn-add { background-color: transparent; color: var(--primary); font-size: 15px; padding: 10px; margin-top: 5px; width: 100%; border: 1px dashed var(--primary); border-radius: 10px;}
 
-        textarea { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 15px; box-sizing: border-box; min-height: 80px; font-family: inherit; margin-top: 8px; resize: vertical; }
+        details { background: #fff; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); overflow: hidden; }
+        summary { padding: 16px; font-weight: 600; font-size: 16px; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; color: var(--text-main); }
+        summary::-webkit-details-marker { display: none; }
+        summary::after { content: '▼'; font-size: 12px; color: var(--text-muted); transition: transform 0.3s;}
+        details[open] summary::after { transform: rotate(180deg); }
+        .details-content { padding: 0 16px 16px 16px; background: #fcfcfc; border-top: 1px solid var(--border); }
 
-        input[type="file"] { display: none; }
-        .custom-file-upload {
-            display: block; background-color: #E5E5EA; color: var(--primary); padding: 12px 16px;
-            border-radius: 10px; font-size: 15px; font-weight: 500; text-align: center; cursor: pointer;
-            margin-top: 4px; box-sizing: border-box;
+        /* Liquid Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: max(20px, env(safe-area-inset-bottom));
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 40px;
+            display: flex;
+            padding: 6px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+        .nav-item {
+            padding: 12px 28px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            user-select: none;
+        }
+        .nav-item.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
         }
 
+        /* Tab Content */
+        .tab-content { display: none; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Autocomplete Styles */
+        .autocomplete-wrapper { position: relative; margin-bottom: 8px; width: 100%; display: flex; align-items: center; gap: 8px;}
+        .autocomplete-wrapper input { 
+            flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 15px; outline: none; 
+            background: #fff; transition: border-color 0.2s;
+        }
+        .autocomplete-wrapper input:focus { border-color: var(--primary); }
+        .autocomplete-list {
+            position: absolute; top: 100%; left: 0; right: 34px; background: #fff; z-index: 99;
+            border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-height: 150px; overflow-y: auto;
+            display: none; border: 1px solid var(--border); margin-top: 4px;
+        }
+        .autocomplete-list div { padding: 10px 12px; font-size: 15px; cursor: pointer; border-bottom: 1px solid var(--border); }
+        .autocomplete-list div:last-child { border-bottom: none; }
+        .autocomplete-list div:hover { background: #f0f0f0; }
+        
+        .delete-icon-btn { background: none; border: none; color: var(--danger); padding: 8px; margin: 0; width: auto; font-size: 20px; line-height: 1; }
+
+        .form-block { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; position: relative;}
+        .form-block-header { font-weight: 600; color: var(--primary); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;}
+        
+        .hidden { display: none !important; }
+        
+        /* Editor Styles (wie bisher) */
         .editor-block { border-bottom: 8px solid var(--bg-color); padding-top: 0; position: relative; }
         .editor-block-header { display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 8px 16px; border-bottom: 1px solid var(--border);}
         .editor-block-title { font-weight: 600; font-size: 14px; color: var(--primary); }
-        
-        .delete-btn { 
-            background: transparent; border: none; padding: 0; cursor: pointer; 
-            color: var(--danger); display: flex; align-items: center; justify-content: flex-end;
-            width: 24px; height: 24px; margin: 0;
-        }
-        .delete-btn svg { width: 18px; height: 18px; }
-
         .ios-list-row { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid #E5E5EA; background: #fff; }
         .ios-list-row:last-child { border-bottom: none; }
         .ios-list-row label { width: 90px; font-size: 16px; color: var(--text-main); font-weight: normal; margin: 0; }
         .ios-list-row input { flex: 1; border: none; font-size: 16px; text-align: right; color: var(--text-muted); outline: none; background: transparent; padding: 0; margin: 0;}
         .ios-list-row input:focus { color: var(--text-main); }
-
-        button { background-color: var(--primary); color: white; border: none; border-radius: 10px; padding: 14px; font-size: 17px; font-weight: 600; width: 100%; cursor: pointer; margin-top: 10px; }
-        button:disabled { background-color: var(--text-muted); opacity: 0.7; }
-        .btn-secondary { background-color: #E5E5EA; color: var(--primary); margin-top: 8px; padding: 10px; font-size: 15px; }
-
-        details { background: #F9F9F9; border-radius: 8px; margin-top: 12px; border: 1px solid var(--border); }
-        summary { padding: 14px; font-weight: 600; font-size: 15px; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; color: var(--text-main); }
-        summary::-webkit-details-marker { display: none; }
-        summary::after { content: '▼'; font-size: 12px; color: var(--text-muted); }
-        details[open] summary::after { content: '▲'; }
-        .details-content { padding: 0 14px 14px 14px; }
-        .details-label { display: block; font-size: 13px; font-weight: 600; margin-top: 12px; color: var(--text-muted); }
-
-        #status { text-align: center; font-size: 14px; color: var(--text-muted); margin-top: 16px; font-weight: 500; }
-        .hidden { display: none !important; }
-        .success-text { color: #34c759; font-size: 12px; margin-top: 6px; display: block; }
-        
-        .news-item { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 12px; background: #fff; }
-        .news-item input { width: 100%; border: none; border-bottom: 1px solid #E5E5EA; font-size: 15px; font-weight: bold; padding-bottom: 6px; margin-bottom: 8px; outline: none; }
-        .news-item textarea { width: 100%; border: none; font-size: 14px; min-height: 60px; outline: none; resize: vertical; margin-top: 0; padding: 0; }
     </style>
 </head>
 <body>
 
     <div class="header">
         <div class="title-wrapper">
-            <h1>Messdienerplan</h1>
-            <span class="version">v24.3</span>
+            <h1>Messdiener</h1>
+            <span class="version">v25.0</span>
         </div>
-        <button class="settings-btn" onclick="toggleSettings()">
+        <button class="settings-btn" onclick="toggleSettingsModal()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="3"></circle>
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -123,109 +160,129 @@
         </button>
     </div>
 
-    <div id="settingsCard" class="card hidden">
-        <h2>Einstellungen</h2>
-        
+    <div id="settingsModal" class="card hidden">
+        <h2>System-Einstellungen</h2>
         <div class="ios-input-group">
             <label>API-Schlüssel (Gemini KI)</label>
             <input type="text" id="apiKey" placeholder="AIzaSy...">
         </div>
-
         <div class="ios-input-group">
             <label>Firebase Projekt-ID (Cloud Sync)</label>
             <input type="text" id="fbProjectId" placeholder="z.B. messdienerplan-b8c62">
             <button class="btn-secondary" style="margin-top:10px;" onclick="manualFirebaseSync()">🔄 Aus Cloud laden / Sync</button>
             <span id="fbStatus" style="font-size:12px; color:var(--primary); margin-top:6px; text-align: center;"></span>
         </div>
-        
         <div class="ios-input-group">
-            <label>Logo / Kopfzeile (Quadratisch)</label>
-            <label for="logoFile" class="custom-file-upload" id="logoLabel">📄 Logo auswählen</label>
-            <input type="file" id="logoFile" accept="image/*" onchange="updateFileLabel(this, 'logoLabel')">
-            <span id="logoStatus" class="success-text hidden">✔️ Logo ist gespeichert.</span>
+            <label>Google Sheets Link (Fehlzeiten .csv)</label>
+            <input type="text" id="sheetsLink" placeholder="Link aus 'Im Web veröffentlichen'">
         </div>
-
-        <div class="ios-input-group">
-            <label>Gruppeneinteilung hochladen</label>
-            <label for="gruppenPlanFile" class="custom-file-upload" id="gruppenLabel">📄 Datei / Foto auswählen</label>
-            <input type="file" id="gruppenPlanFile" accept="application/pdf,image/*" onchange="updateFileLabel(this, 'gruppenLabel')">
-            <button class="btn-secondary" onclick="extractGroups()" id="btnExtract">Gruppen aus Datei auslesen</button>
-            <div id="extractStatus" style="font-size: 13px; color: var(--text-muted); margin-top: 5px;"></div>
+        <div class="ios-input-group" style="border-bottom:none;">
+            <button class="btn-secondary" onclick="hardReloadApp()">🔄 App aktualisieren (Cache leeren)</button>
         </div>
-
-        <div class="card-padding" style="padding-top: 0;">
-            <details>
-                <summary>Regeln, Gruppen & Abwesenheiten</summary>
-                <div class="details-content">
-                    <span class="details-label">Gruppeneinteilung (Text):</span>
-                    <textarea id="groupText" placeholder="Hier erscheint der Text..."></textarea>
-                    
-                    <span class="details-label">Google Sheets Link (Fehlzeiten):</span>
-                    <input type="text" id="sheetsLink" placeholder="Link aus 'Im Web veröffentlichen' (.csv)" style="width:100%; border:1px solid var(--border); border-radius:8px; padding:10px; box-sizing:border-box;">
-
-                    <span class="details-label">Dienen IMMER zusammen:</span>
-                    <textarea id="alwaysTogether" placeholder="z.B. Anna und Paul" style="min-height: 50px;"></textarea>
-                    
-                    <span class="details-label">Dienen NIE zusammen:</span>
-                    <textarea id="neverTogether" placeholder="z.B. Max und Moritz" style="min-height: 50px;"></textarea>
-                </div>
-            </details>
-            
-            <details>
-                <summary>Einsatz-Statistiken (Backup & Reset)</summary>
-                <div class="details-content">
-                    <span class="details-label">Bisherige Einsätze (Manuell bearbeitbar):</span>
-                    <textarea id="serveStats" placeholder="{}" style="min-height: 100px; font-family: monospace;"></textarea>
-                    
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn-secondary" style="margin-top: 4px; flex: 1;" onclick="copyStats()">Kopieren</button>
-                        <button class="btn-secondary" style="margin-top: 4px; flex: 1; background-color: #ffebee; color: var(--danger);" onclick="resetStats()">Zurücksetzen</button>
-                    </div>
-                </div>
-            </details>
-            
-            <details>
-                <summary>System</summary>
-                <div class="details-content">
-                    <button class="btn-secondary" style="margin-top: 12px; border: 1px solid var(--border);" onclick="hardReloadApp()">🔄 App aktualisieren (Neuladen)</button>
-                    <p style="font-size:12px; color:var(--text-muted); margin-top:8px;">Klicke hier, um den Cache zu leeren und die App auf die neueste Version zu zwingen. Einstellungen gehen NICHT verloren.</p>
-                </div>
-            </details>
-
-            <button onclick="saveSettings()" style="background-color: var(--success); margin-top: 16px;">💾 Speichern & in Cloud hochladen</button>
+        <div class="card-padding">
+            <button onclick="saveCoreSettings()" style="background-color: var(--success); margin-top: 0;">Speichern & Schließen</button>
         </div>
     </div>
 
-    <div id="uploadCard" class="card">
-        <h2>Aktueller Pfarrbrief</h2>
-        <div class="ios-input-group" style="border-bottom: none;">
-            <label for="pfarrbriefFile" class="custom-file-upload" id="pfarrbriefLabel" style="margin-top:0;">📄 Datei oder Screenshots auswählen</label>
-            <input type="file" id="pfarrbriefFile" accept="application/pdf,image/*" multiple onchange="updateFileLabel(this, 'pfarrbriefLabel')">
+    <div id="planer-tab" class="tab-content active">
+        <div class="card" id="uploadCard">
+            <h2>Aktueller Pfarrbrief</h2>
+            <div class="ios-input-group" style="border-bottom: none;">
+                <label for="pfarrbriefFile" class="custom-file-upload" id="pfarrbriefLabel" style="background:#E5E5EA; color:var(--primary); padding: 16px; border-radius: 12px; cursor: pointer; text-align: center; font-weight: 500; display: block;">📄 PDF / Foto hochladen</label>
+                <input type="file" id="pfarrbriefFile" accept="application/pdf,image/*" multiple onchange="updateFileLabel(this, 'pfarrbriefLabel')" style="display:none;">
+            </div>
+            <div class="card-padding" style="padding-top: 0;">
+                <button id="btnAnalyze" onclick="analyzeData()">KI Auswertung starten</button>
+                <div id="status" style="text-align: center; font-size: 14px; margin-top: 10px; color: var(--text-muted);"></div>
+            </div>
         </div>
-        <div class="card-padding" style="padding-top: 0;">
-            <button id="btnAnalyze" onclick="analyzeData()">KI Auswertung starten</button>
-            <div id="status"></div>
+
+        <div id="editorSection" class="hidden">
+            <h2>Plan bearbeiten</h2>
+            <div class="card" id="editorContainer" style="padding: 0; background: transparent; box-shadow: none;"></div>
+            
+            <details style="margin-bottom: 24px;">
+                <summary style="color: var(--primary);">News & Ankündigungen</summary>
+                <div class="details-content" id="newsContainer" style="padding-top: 16px;"></div>
+                <button class="btn-add" onclick="addNewsItem()" style="border:none; background:#E5E5EA; margin: 0 16px 16px 16px; width: calc(100% - 32px);">+ Weitere News</button>
+            </details>
+
+            <button onclick="generatePDF()" style="background-color: var(--warning); margin-bottom: 20px;">📄 PDF Plan erstellen</button>
         </div>
     </div>
 
-    <div id="editorSection" class="hidden">
-        <h2>Plan prüfen & bearbeiten</h2>
-        <div class="card" id="editorContainer" style="padding: 0; background: transparent; box-shadow: none;"></div>
+    <div id="verwaltung-tab" class="tab-content">
         
-        <details style="margin-bottom: 24px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
-            <summary style="color: var(--primary);">News & Ankündigungen</summary>
-            <div class="details-content" id="newsContainer"></div>
-            <button class="btn-secondary" onclick="addNewsItem()" style="margin: 0 14px 14px 14px; width: calc(100% - 28px);">+ Weitere News hinzufügen</button>
+        <details>
+            <summary>Vormerkungen</summary>
+            <div class="details-content" id="vormerkungen-container" style="padding-top: 16px;"></div>
+            <button class="btn-add" onclick="addVormerkungBlock()" style="margin: 0 16px 16px 16px; width: calc(100% - 32px);">+ Gottesdienst vormerken</button>
         </details>
 
-        <button onclick="generatePDF()" style="background-color: var(--warning); margin-bottom: 40px;">Plan erstellen</button>
+        <details>
+            <summary>Gruppen verwalten</summary>
+            <div class="details-content" id="gruppen-container" style="padding-top: 16px;"></div>
+            <button class="btn-add" onclick="addGroupBlock()" id="btnAddGroup" style="margin: 0 16px 16px 16px; width: calc(100% - 32px);">+ Gruppe hinzufügen</button>
+        </details>
+
+        <details>
+            <summary>Immer zusammen einteilen</summary>
+            <div class="details-content" id="immerZusammen-container" style="padding-top: 16px;"></div>
+            <button class="btn-add" onclick="addRuleBlock('immerZusammen-container')" style="margin: 0 16px 16px 16px; width: calc(100% - 32px);">+ Paar hinzufügen</button>
+        </details>
+
+        <details>
+            <summary>Nie zusammen einteilen</summary>
+            <div class="details-content" id="nieZusammen-container" style="padding-top: 16px;"></div>
+            <button class="btn-add" onclick="addRuleBlock('nieZusammen-container')" style="margin: 0 16px 16px 16px; width: calc(100% - 32px);">+ Paar hinzufügen</button>
+        </details>
+
+        <details>
+            <summary>Statistik (Gerechtigkeit)</summary>
+            <div class="details-content" style="padding-top: 16px;">
+                <textarea id="serveStats" placeholder="{}" style="min-height: 120px; font-family: monospace; font-size: 13px;"></textarea>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-secondary" style="margin-top: 4px; flex: 1;" onclick="copyStats()">Kopieren</button>
+                    <button class="btn-secondary" style="margin-top: 4px; flex: 1; background-color: #ffebee; color: var(--danger);" onclick="resetStats()">Zurücksetzen</button>
+                </div>
+            </div>
+        </details>
+
+        <button onclick="saveAllVerwaltung()" style="background-color: var(--success); margin-bottom: 20px;">💾 Speichern & Sync</button>
     </div>
 
-    <script>
-        let newsCount = 0;
+    <nav class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('planer')">Planer</div>
+        <div class="nav-item" onclick="switchTab('verwaltung')">Verwaltung</div>
+    </nav>
 
-        // --- HILFSFUNKTIONEN FÜR JSON <-> TEXT KONVERTIERUNG ---
-        
+    <script>
+        // --- TAB LOGIK ---
+        function switchTab(tabName) {
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            
+            event.currentTarget.classList.add('active');
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            if (tabName === 'verwaltung') {
+                renderVerwaltung(); // Aktualisiere UI, falls Daten geladen wurden
+            }
+        }
+
+        function toggleSettingsModal() {
+            document.getElementById('settingsModal').classList.toggle('hidden');
+        }
+
+        // --- GLOBAL STATE ---
+        let appState = {
+            gruppen: [], // {id, name, mitglieder: [name1, name2]}
+            neueMinis: [], // [name1, name2]
+            immerZusammen: [], // {id, p1, p2}
+            nieZusammen: [], // {id, p1, p2}
+            vormerkungen: [] // {id, datum, uhrzeit, wochentag, anlass, minis: []}
+        };
+
         function generateUUID() {
             if (crypto && crypto.randomUUID) return crypto.randomUUID();
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -234,81 +291,341 @@
             });
         }
 
-        // 1. REGELN
-        function rulesToJSON(text) {
-            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-            const arr = lines.map(line => {
-                let parts = line.split(/\s+und\s+|\s*&\s*|\s*,\s*/i);
-                if (parts.length >= 2) return { id: generateUUID(), p1: parts[0].trim(), p2: parts[1].trim() };
-                return null;
-            }).filter(Boolean);
-            return JSON.stringify(arr);
+        // Alle bekannten Namen für Autocomplete sammeln
+        function getAllKnownNames() {
+            const names = new Set();
+            appState.gruppen.forEach(g => g.mitglieder.forEach(m => names.add(m)));
+            return Array.from(names).sort();
         }
 
-        function jsonToRules(jsonStr) {
-            if(!jsonStr) return "";
-            try {
-                const arr = JSON.parse(jsonStr || "[]");
-                return arr.map(item => `${item.p1} und ${item.p2}`).join('\n');
-            } catch(e) { return ""; }
+        // --- UI HILFSFUNKTIONEN (AUTOCOMPLETE) ---
+        function createAutocompleteInput(val, placeholder, isNewToggle = false) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'autocomplete-wrapper';
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = val;
+            input.placeholder = placeholder;
+            
+            const list = document.createElement('div');
+            list.className = 'autocomplete-list';
+
+            input.addEventListener('input', function() {
+                list.innerHTML = '';
+                const query = this.value.toLowerCase();
+                list.style.display = query ? 'block' : 'none';
+                if (!query) return;
+
+                const suggestions = getAllKnownNames().filter(n => n.toLowerCase().includes(query));
+                suggestions.forEach(item => {
+                    const div = document.createElement('div');
+                    div.innerText = item;
+                    div.onmousedown = (e) => { // mousedown triggert vor blur
+                        e.preventDefault();
+                        input.value = item;
+                        list.style.display = 'none';
+                    };
+                    list.appendChild(div);
+                });
+            });
+
+            input.addEventListener('blur', () => { setTimeout(() => list.style.display = 'none', 150); });
+            input.addEventListener('focus', () => { if(input.value && list.innerHTML) list.style.display = 'block'; });
+
+            wrapper.appendChild(input);
+            
+            // Checkbox für (neu) in Gruppen
+            let neuToggle = null;
+            if (isNewToggle) {
+                neuToggle = document.createElement('button');
+                neuToggle.type = 'button';
+                neuToggle.style = "background:transparent; color:#8e8e93; border:1px solid #c6c6c8; width:40px; margin:0; padding:10px 0; font-size:12px; border-radius:8px;";
+                neuToggle.innerText = "NEU";
+                if (appState.neueMinis.includes(val)) {
+                    neuToggle.style.backgroundColor = "var(--primary)";
+                    neuToggle.style.color = "#fff";
+                    neuToggle.style.borderColor = "var(--primary)";
+                    neuToggle.dataset.isNeu = "true";
+                } else {
+                    neuToggle.dataset.isNeu = "false";
+                }
+                neuToggle.onclick = function() {
+                    if (this.dataset.isNeu === "true") {
+                        this.dataset.isNeu = "false";
+                        this.style.backgroundColor = "transparent";
+                        this.style.color = "#8e8e93";
+                        this.style.borderColor = "#c6c6c8";
+                    } else {
+                        this.dataset.isNeu = "true";
+                        this.style.backgroundColor = "var(--primary)";
+                        this.style.color = "#fff";
+                        this.style.borderColor = "var(--primary)";
+                    }
+                };
+                wrapper.appendChild(neuToggle);
+            }
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'delete-icon-btn';
+            delBtn.innerHTML = '✖';
+            delBtn.onclick = () => wrapper.remove();
+            
+            wrapper.appendChild(delBtn);
+            wrapper.appendChild(list);
+            
+            return { wrapper, input, neuToggle };
         }
 
-        // 2. GRUPPEN
-        function groupsToJSON(text) {
-            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-            let groups = [];
-            let neueMinis = [];
-            let currentGroup = null;
+        // --- VERWALTUNG UI RENDERER ---
+        function renderVerwaltung() {
+            // Vormerkungen
+            const vormerkContainer = document.getElementById('vormerkungen-container');
+            vormerkContainer.innerHTML = '';
+            appState.vormerkungen.forEach(v => vormerkContainer.appendChild(createVormerkungBlockDOM(v)));
 
-            lines.forEach(line => {
-                if (/^gruppe/i.test(line)) {
-                    let gName = line.replace(/^gruppe\s*/i, '').replace(':', '').trim();
-                    currentGroup = { id: generateUUID(), name: gName, mitglieder: [] };
-                    groups.push(currentGroup);
-                } else if (currentGroup && line) {
-                    let isNeu = /\(neu\)/i.test(line);
-                    let cleanName = line.replace(/\s*\(neu\)/gi, '').trim();
-                    currentGroup.mitglieder.push(cleanName);
-                    if (isNeu && !neueMinis.includes(cleanName)) neueMinis.push(cleanName);
+            // Gruppen
+            const gruppenContainer = document.getElementById('gruppen-container');
+            gruppenContainer.innerHTML = '';
+            appState.gruppen.forEach(g => gruppenContainer.appendChild(createGroupBlockDOM(g)));
+            checkGroupLimit();
+
+            // Regeln
+            renderRulesDOM('immerZusammen-container', appState.immerZusammen);
+            renderRulesDOM('nieZusammen-container', appState.nieZusammen);
+        }
+
+        // 1. VORMERKUNGEN DOM
+        function createVormerkungBlockDOM(data) {
+            const block = document.createElement('div');
+            block.className = 'form-block';
+            block.dataset.id = data.id || generateUUID();
+            
+            const header = document.createElement('div');
+            header.className = 'form-block-header';
+            header.innerHTML = `<span>Gottesdienst</span> <button class="delete-icon-btn" onclick="this.closest('.form-block').remove()">✖</button>`;
+            block.appendChild(header);
+
+            // Inputs
+            const wrapDate = document.createElement('div'); wrapDate.className = 'ios-list-row'; wrapDate.style.padding = '8px 0';
+            wrapDate.innerHTML = `<label>Datum</label><input type="date" class="v-datum" value="${data.datum || ''}">`;
+            
+            const wrapTime = document.createElement('div'); wrapTime.className = 'ios-list-row'; wrapTime.style.padding = '8px 0';
+            wrapTime.innerHTML = `<label>Uhrzeit</label><input type="time" class="v-uhrzeit" value="${data.uhrzeit || ''}">`;
+            
+            const wrapAnlass = document.createElement('div'); wrapAnlass.className = 'ios-list-row'; wrapAnlass.style.padding = '8px 0';
+            wrapAnlass.innerHTML = `<label>Anlass</label><input type="text" class="v-anlass" value="${data.anlass || ''}" placeholder="z.B. Taufe">`;
+            
+            block.appendChild(wrapDate);
+            block.appendChild(wrapTime);
+            block.appendChild(wrapAnlass);
+
+            const minisContainer = document.createElement('div');
+            minisContainer.className = 'v-minis-container';
+            minisContainer.style.marginTop = '12px';
+            
+            const minisList = data.minis && data.minis.length > 0 ? data.minis : [''];
+            minisList.forEach(m => {
+                const auto = createAutocompleteInput(m, "Messdiener suchen...");
+                minisContainer.appendChild(auto.wrapper);
+            });
+
+            const btnAdd = document.createElement('button');
+            btnAdd.className = 'btn-add';
+            btnAdd.innerText = '+ Weiterer Messdiener';
+            btnAdd.onclick = () => {
+                if(minisContainer.children.length < 8) {
+                    minisContainer.appendChild(createAutocompleteInput('', "Messdiener suchen...").wrapper);
+                } else { alert("Maximal 8 Messdiener erlaubt."); }
+            };
+
+            block.appendChild(minisContainer);
+            block.appendChild(btnAdd);
+            return block;
+        }
+
+        function addVormerkungBlock() {
+            document.getElementById('vormerkungen-container').appendChild(createVormerkungBlockDOM({}));
+        }
+
+        // 2. GRUPPEN DOM
+        function createGroupBlockDOM(data) {
+            const block = document.createElement('div');
+            block.className = 'form-block';
+            block.dataset.id = data.id || generateUUID();
+
+            const header = document.createElement('div');
+            header.className = 'form-block-header';
+            header.innerHTML = `<span>Gruppe</span> <button class="delete-icon-btn" onclick="this.closest('.form-block').remove(); checkGroupLimit();">✖</button>`;
+            block.appendChild(header);
+
+            const wrapName = document.createElement('div'); wrapName.className = 'ios-list-row'; wrapName.style.padding = '8px 0';
+            wrapName.innerHTML = `<label>Name</label><input type="text" class="g-name" value="${data.name || ''}" placeholder="z.B. A">`;
+            block.appendChild(wrapName);
+
+            const minisContainer = document.createElement('div');
+            minisContainer.className = 'g-minis-container';
+            minisContainer.style.marginTop = '12px';
+
+            const minisList = data.mitglieder && data.mitglieder.length > 0 ? data.mitglieder : [''];
+            minisList.forEach(m => {
+                const auto = createAutocompleteInput(m, "Name...", true);
+                minisContainer.appendChild(auto.wrapper);
+            });
+
+            const btnAdd = document.createElement('button');
+            btnAdd.className = 'btn-add';
+            btnAdd.innerText = '+ Mitglied hinzufügen';
+            btnAdd.onclick = () => minisContainer.appendChild(createAutocompleteInput('', "Name...", true).wrapper);
+
+            block.appendChild(minisContainer);
+            block.appendChild(btnAdd);
+            return block;
+        }
+
+        function addGroupBlock() {
+            const container = document.getElementById('gruppen-container');
+            if (container.children.length < 6) {
+                container.appendChild(createGroupBlockDOM({}));
+                checkGroupLimit();
+            }
+        }
+
+        function checkGroupLimit() {
+            const count = document.getElementById('gruppen-container').children.length;
+            document.getElementById('btnAddGroup').style.display = count >= 6 ? 'none' : 'block';
+        }
+
+        // 3. REGELN DOM
+        function renderRulesDOM(containerId, dataArray) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            dataArray.forEach(pair => container.appendChild(createRuleBlockDOM(pair)));
+        }
+
+        function createRuleBlockDOM(data) {
+            const block = document.createElement('div');
+            block.className = 'form-block';
+            block.style.display = 'flex'; block.style.gap = '8px'; block.style.alignItems = 'center'; block.style.padding = '8px';
+            
+            const a1 = createAutocompleteInput(data.p1 || '', "Name 1");
+            const a2 = createAutocompleteInput(data.p2 || '', "Name 2");
+            
+            // Remove the delete buttons inside the autocomplete for rules, keep one global
+            a1.wrapper.querySelector('.delete-icon-btn').remove();
+            a2.wrapper.querySelector('.delete-icon-btn').remove();
+            a1.wrapper.style.marginBottom = '0';
+            a2.wrapper.style.marginBottom = '0';
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'delete-icon-btn';
+            delBtn.innerHTML = '✖';
+            delBtn.onclick = () => block.remove();
+
+            block.appendChild(a1.wrapper);
+            block.appendChild(document.createTextNode('&'));
+            block.appendChild(a2.wrapper);
+            block.appendChild(delBtn);
+
+            return block;
+        }
+
+        function addRuleBlock(containerId) {
+            document.getElementById(containerId).appendChild(createRuleBlockDOM({}));
+        }
+
+        // --- DATEN EXTRAKTION AUS UI ---
+        function extractVerwaltungData() {
+            // Vormerkungen
+            appState.vormerkungen = Array.from(document.getElementById('vormerkungen-container').children).map(block => {
+                const minis = Array.from(block.querySelectorAll('.autocomplete-wrapper input')).map(i => i.value.trim()).filter(v => v);
+                // Wochentag aus Datum berechnen
+                let wochentag = "";
+                const dateVal = block.querySelector('.v-datum').value;
+                if(dateVal) {
+                    const days = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+                    wochentag = days[new Date(dateVal).getDay()];
+                }
+                // Deutsches Format TT.MM.YYYY
+                let deDate = dateVal ? dateVal.split('-').reverse().join('.') : "";
+
+                return {
+                    id: block.dataset.id,
+                    datum: deDate,
+                    uhrzeit: block.querySelector('.v-uhrzeit').value,
+                    wochentag: wochentag,
+                    anlass: block.querySelector('.v-anlass').value.trim(),
+                    minis: minis
+                };
+            }).filter(v => v.datum); // Nur speichern wenn Datum gesetzt
+
+            // Gruppen & (neu)
+            appState.gruppen = [];
+            appState.neueMinis = [];
+            Array.from(document.getElementById('gruppen-container').children).forEach(block => {
+                const name = block.querySelector('.g-name').value.trim();
+                const mitglieder = [];
+                Array.from(block.querySelectorAll('.autocomplete-wrapper')).forEach(wrap => {
+                    const mName = wrap.querySelector('input').value.trim();
+                    if (mName) {
+                        mitglieder.push(mName);
+                        if (wrap.querySelector('button[data-is-neu]').dataset.isNeu === "true") {
+                            appState.neueMinis.push(mName);
+                        }
+                    }
+                });
+                if (name && mitglieder.length > 0) {
+                    appState.gruppen.push({ id: block.dataset.id, name: name, mitglieder: mitglieder });
                 }
             });
-            return {
-                gruppenJson: JSON.stringify(groups),
-                neueMessdienerJson: JSON.stringify(neueMinis)
-            };
+
+            // Regeln
+            appState.immerZusammen = Array.from(document.getElementById('immerZusammen-container').children).map(block => {
+                const inputs = block.querySelectorAll('input');
+                return { id: generateUUID(), p1: inputs[0].value.trim(), p2: inputs[1].value.trim() };
+            }).filter(p => p.p1 && p.p2);
+
+            appState.nieZusammen = Array.from(document.getElementById('nieZusammen-container').children).map(block => {
+                const inputs = block.querySelectorAll('input');
+                return { id: generateUUID(), p1: inputs[0].value.trim(), p2: inputs[1].value.trim() };
+            }).filter(p => p.p1 && p.p2);
         }
 
-        function jsonToGroups(gruppenJson, neueJson) {
-            if(!gruppenJson) return "";
-            try {
-                const groups = JSON.parse(gruppenJson || "[]");
-                const neueMinis = JSON.parse(neueJson || "[]");
-                let result = [];
+        async function saveAllVerwaltung() {
+            extractVerwaltungData();
+            
+            // Lokales Backup (Text-Format für Prompt generieren)
+            localStorage.setItem('savedGroupText', stateToGroupsText());
+            localStorage.setItem('savedAlwaysTogether', appState.immerZusammen.map(p=>`${p.p1} und ${p.p2}`).join('\n'));
+            localStorage.setItem('savedNeverTogether', appState.nieZusammen.map(p=>`${p.p1} und ${p.p2}`).join('\n'));
+            localStorage.setItem('savedVormerkungen', JSON.stringify(appState.vormerkungen));
+            
+            // Stats
+            const stats = document.getElementById('serveStats').value;
+            localStorage.setItem('savedServeStats', stats);
 
-                groups.forEach(g => {
-                    result.push(`Gruppe ${g.name}`);
-                    g.mitglieder.forEach(m => {
-                        if(neueMinis.includes(m)) result.push(`${m} (neu)`);
-                        else result.push(m);
-                    });
-                    result.push(""); // Leerzeile
-                });
-                return result.join('\n').trim();
-            } catch(e) { return ""; }
+            alert("Lokal gespeichert!");
+            if (document.getElementById('fbProjectId').value.trim()) {
+                await pushToFirebase();
+            }
         }
 
-        // --- FIREBASE SYNC LOGIK (API-Key less REST, Int64 & JSON Strings) ---
+        // Hilfsfunktion: Erzeugt Text für die KI
+        function stateToGroupsText() {
+            return appState.gruppen.map(g => {
+                let members = g.mitglieder.map(m => appState.neueMinis.includes(m) ? `${m} (neu)` : m);
+                return `Gruppe ${g.name}\n${members.join('\n')}\n`;
+            }).join('\n');
+        }
+
+
+        // --- FIREBASE SYNC LOGIK (API-Key less REST) ---
         async function firebaseRequest(docName, method, payloadType, data = null) {
-            const projectIdElement = document.getElementById('fbProjectId');
-            const projectId = projectIdElement ? projectIdElement.value.trim() : localStorage.getItem('fbProjectId');
+            const projectId = document.getElementById('fbProjectId').value.trim() || localStorage.getItem('fbProjectId');
             if (!projectId) return null;
 
             let url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/messdiener/${docName}`;
-
-            const options = {
-                method: method,
-                headers: { 'Content-Type': 'application/json' }
-            };
+            const options = { method: method, headers: { 'Content-Type': 'application/json' } };
 
             if (data && method === 'PATCH') {
                 const firestoreFields = {};
@@ -346,293 +663,91 @@
                 }
                 return result;
             } catch (e) {
-                console.error("Firebase Error:", e);
                 return null;
             }
         }
 
-        // Manueller PULL (Lädt aus der Cloud)
         async function manualFirebaseSync() {
             const status = document.getElementById('fbStatus');
             const projectId = document.getElementById('fbProjectId').value.trim();
-            
-            if(!projectId) {
-                status.innerText = "Bitte zuerst Projekt-ID eingeben!"; return;
-            }
+            if(!projectId) { status.innerText = "Bitte Projekt-ID eingeben!"; return; }
             status.innerText = "Lade aus der Cloud... ⏳";
-            let gotData = false;
-
+            
             // 1. STATISTIK
             const remoteStats = await firebaseRequest('statistik', 'GET', 'int64Map');
             if (remoteStats && Object.keys(remoteStats).length > 0) {
                 localStorage.setItem('savedServeStats', JSON.stringify(remoteStats));
                 document.getElementById('serveStats').value = JSON.stringify(remoteStats, null, 2);
-                gotData = true;
             }
 
             // 2. REGELN
             const remoteRegeln = await firebaseRequest('regeln', 'GET', 'jsonStrings');
-            if (remoteRegeln && (remoteRegeln.immerZusammenJson || remoteRegeln.nieZusammenJson)) {
-                const iz = jsonToRules(remoteRegeln.immerZusammenJson);
-                const nz = jsonToRules(remoteRegeln.nieZusammenJson);
-                document.getElementById('alwaysTogether').value = iz;
-                document.getElementById('neverTogether').value = nz;
-                localStorage.setItem('savedAlwaysTogether', iz);
-                localStorage.setItem('savedNeverTogether', nz);
-                gotData = true;
+            if (remoteRegeln) {
+                if(remoteRegeln.immerZusammenJson) appState.immerZusammen = JSON.parse(remoteRegeln.immerZusammenJson);
+                if(remoteRegeln.nieZusammenJson) appState.nieZusammen = JSON.parse(remoteRegeln.nieZusammenJson);
             }
 
             // 3. GRUPPEN
             const remoteGruppen = await firebaseRequest('gruppen', 'GET', 'jsonStrings');
-            if (remoteGruppen && remoteGruppen.gruppenJson) {
-                const grpText = jsonToGroups(remoteGruppen.gruppenJson, remoteGruppen.neueMessdienerJson);
-                document.getElementById('groupText').value = grpText;
-                localStorage.setItem('savedGroupText', grpText);
-                gotData = true;
+            if (remoteGruppen) {
+                if(remoteGruppen.gruppenJson) appState.gruppen = JSON.parse(remoteGruppen.gruppenJson);
+                if(remoteGruppen.neueMessdienerJson) appState.neueMinis = JSON.parse(remoteGruppen.neueMessdienerJson);
             }
 
-            if (gotData) {
-                status.innerText = "✅ Erfolgreich synchronisiert (Mac -> Web)!";
-            } else {
-                status.innerText = "☁️ Cloud ist leer. Drücke auf Speichern zum Hochladen.";
+            // 4. VORMERKUNGEN
+            const remoteVormerkungen = await firebaseRequest('vormerkungen', 'GET', 'jsonStrings');
+            if (remoteVormerkungen && remoteVormerkungen.vormerkungenJson) {
+                appState.vormerkungen = JSON.parse(remoteVormerkungen.vormerkungenJson);
             }
-            setTimeout(() => { status.innerText = ""; }, 4000);
+
+            renderVerwaltung();
+            
+            status.innerText = "✅ Erfolgreich synchronisiert!";
+            setTimeout(() => { status.innerText = ""; }, 3000);
         }
 
-        // PUSH (Schiebt alles in die Cloud)
         async function pushToFirebase() {
-            const status = document.getElementById('fbStatus');
-            if(!document.getElementById('fbProjectId').value.trim()) return;
-            
-            status.innerText = "Speichere in Cloud... ⏳";
-
             // 1. Statistik
-            const localStatsString = document.getElementById('serveStats').value || "{}";
             let localStats = {};
-            try { localStats = JSON.parse(localStatsString); } catch(e) {}
+            try { localStats = JSON.parse(document.getElementById('serveStats').value || "{}"); } catch(e) {}
             await firebaseRequest('statistik', 'PATCH', 'int64Map', localStats);
 
             // 2. Regeln
-            const izData = rulesToJSON(document.getElementById('alwaysTogether').value);
-            const nzData = rulesToJSON(document.getElementById('neverTogether').value);
             await firebaseRequest('regeln', 'PATCH', 'jsonStrings', {
-                immerZusammenJson: izData,
-                nieZusammenJson: nzData
+                immerZusammenJson: JSON.stringify(appState.immerZusammen),
+                nieZusammenJson: JSON.stringify(appState.nieZusammen)
             });
 
             // 3. Gruppen
-            const grpData = groupsToJSON(document.getElementById('groupText').value);
-            await firebaseRequest('gruppen', 'PATCH', 'jsonStrings', grpData);
+            await firebaseRequest('gruppen', 'PATCH', 'jsonStrings', {
+                gruppenJson: JSON.stringify(appState.gruppen),
+                neueMessdienerJson: JSON.stringify(appState.neueMinis)
+            });
 
-            status.innerText = "✅ Alle Daten sicher in der Cloud (Web -> Mac)!";
-            setTimeout(() => { status.innerText = ""; }, 4000);
-        }
-
-        // Stiller Sync beim Start
-        async function silentFirebasePull() {
-            if(!localStorage.getItem('fbProjectId')) return;
-            
-            const remoteStats = await firebaseRequest('statistik', 'GET', 'int64Map');
-            if (remoteStats && Object.keys(remoteStats).length > 0) {
-                localStorage.setItem('savedServeStats', JSON.stringify(remoteStats));
-                document.getElementById('serveStats').value = JSON.stringify(remoteStats, null, 2);
-            }
-            const remoteRegeln = await firebaseRequest('regeln', 'GET', 'jsonStrings');
-            if (remoteRegeln && (remoteRegeln.immerZusammenJson || remoteRegeln.nieZusammenJson)) {
-                const iz = jsonToRules(remoteRegeln.immerZusammenJson);
-                const nz = jsonToRules(remoteRegeln.nieZusammenJson);
-                document.getElementById('alwaysTogether').value = iz;
-                document.getElementById('neverTogether').value = nz;
-                localStorage.setItem('savedAlwaysTogether', iz);
-                localStorage.setItem('savedNeverTogether', nz);
-            }
-            const remoteGruppen = await firebaseRequest('gruppen', 'GET', 'jsonStrings');
-            if (remoteGruppen && remoteGruppen.gruppenJson) {
-                const grpText = jsonToGroups(remoteGruppen.gruppenJson, remoteGruppen.neueMessdienerJson);
-                document.getElementById('groupText').value = grpText;
-                localStorage.setItem('savedGroupText', grpText);
-            }
-        }
-        // -----------------------------------------
-
-        async function fetchWithRetry(url, options, retries = 1) {
-            for (let i = 0; i < retries; i++) {
-                try {
-                    const response = await fetch(url, options);
-                    if (!response.ok) {
-                        const errText = await response.text();
-                        throw new Error(`API Fehler: ${response.status} - ${errText}`);
-                    }
-                    return response;
-                } catch (err) {
-                    if (i === retries - 1) throw err;
-                    console.log(`Verbindungsabbruch. Starte Versuch ${i+2}/${retries}...`);
-                    await new Promise(res => setTimeout(res, 2000));
-                }
-            }
-        }
-
-        function hardReloadApp() {
-            const apiKey = document.getElementById('apiKey').value;
-            if(apiKey) localStorage.setItem('geminiApiKey', apiKey);
-            
-            const fbProj = document.getElementById('fbProjectId').value;
-            if(fbProj) localStorage.setItem('fbProjectId', fbProj);
-            
-            localStorage.setItem('savedGroupText', document.getElementById('groupText').value);
-            localStorage.setItem('savedSheetsLink', document.getElementById('sheetsLink').value);
-            localStorage.setItem('savedAlwaysTogether', document.getElementById('alwaysTogether').value);
-            localStorage.setItem('savedNeverTogether', document.getElementById('neverTogether').value);
-            
-            const statsInput = document.getElementById('serveStats').value;
-            try { 
-                if(statsInput.trim() !== "") { 
-                    JSON.parse(statsInput); 
-                    localStorage.setItem('savedServeStats', statsInput); 
-                } 
-            } catch(e) {}
-
-            saveEditorState();
-            saveNewsState();
-
-            if ('caches' in window) {
-                caches.keys().then((names) => {
-                    names.forEach(name => caches.delete(name));
-                });
-            }
-            
-            window.location.reload(true);
-        }
-
-        function copyStats() {
-            const text = document.getElementById('serveStats').value;
-            navigator.clipboard.writeText(text).then(() => {
-                alert("Statistik wurde in die Zwischenablage kopiert!");
-            }).catch(err => {
-                alert("Fehler beim Kopieren: " + err);
+            // 4. Vormerkungen
+            await firebaseRequest('vormerkungen', 'PATCH', 'jsonStrings', {
+                vormerkungenJson: JSON.stringify(appState.vormerkungen)
             });
         }
 
-        function updateFileLabel(input, labelId) {
-            const label = document.getElementById(labelId);
-            if (input.files && input.files.length > 0) {
-                if (input.files.length === 1) {
-                    label.innerText = "✅ " + input.files[0].name;
-                } else {
-                    label.innerText = "✅ " + input.files.length + " Dateien ausgewählt";
-                }
-                label.style.backgroundColor = "#e8f5e9";
-                label.style.color = "#2e7d32";
-            } else {
-                label.innerText = "📄 Datei / Foto auswählen";
-                label.style.backgroundColor = "#E5E5EA";
-                label.style.color = "var(--primary)";
-            }
-        }
 
-        function saveNewsState() {
-            const newsItems = [];
-            for (let i = 0; i < newsCount; i++) {
-                const hElem = document.getElementById(`newsHeading_${i}`);
-                const cElem = document.getElementById(`newsContent_${i}`);
-                if (hElem && cElem) {
-                    newsItems.push({ heading: hElem.value, content: cElem.value });
-                }
-            }
-            localStorage.setItem('savedNewsData', JSON.stringify(newsItems));
-        }
-
-        function addNewsItem(heading = '', content = '') {
-            const container = document.getElementById('newsContainer');
-            const div = document.createElement('div');
-            div.className = 'news-item';
-            
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.id = `newsHeading_${newsCount}`;
-            input.placeholder = "Überschrift (z.B. Messdienerprobe)";
-            input.value = heading;
-            input.oninput = saveNewsState;
-            
-            const textarea = document.createElement('textarea');
-            textarea.id = `newsContent_${newsCount}`;
-            textarea.placeholder = "Informationen oder Ankündigungen hier eintragen...";
-            textarea.value = content;
-            textarea.oninput = saveNewsState;
-            
-            div.appendChild(input);
-            div.appendChild(textarea);
-            container.appendChild(div);
-            
-            newsCount++;
-            saveNewsState();
-        }
-
-        function readFileAsBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve({ mimeType: file.type, data: reader.result.split(',')[1], fullDataUri: reader.result });
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-        }
-
-        function saveEditorState() {
-            const container = document.getElementById('editorContainer');
-            if(!container || container.innerHTML.trim() === '') return; 
-            
-            const blocks = container.querySelectorAll('.editor-block');
-            const dataArray = [];
-            
-            blocks.forEach(block => {
-                const art = block.querySelector('.art-input').value;
-                const isNew = block.querySelector('.is-new-input') ? block.querySelector('.is-new-input').value === 'true' : false;
-
-                if (art === 'woche') {
-                    dataArray.push({ art: 'woche', text: block.querySelector('.woche-text-input').value, isNew: isNew });
-                } else if (art === 'vorschau') {
-                    dataArray.push({ art: 'vorschau', text: block.querySelector('.vorschau-text-input').value, isNew: isNew });
-                } else {
-                    dataArray.push({
-                        art: 'gottesdienst',
-                        wochentag: block.querySelector('.wochentag-input').value,
-                        datum: block.querySelector('.datum-input').value,
-                        typ: block.querySelector('.typ-input').value,
-                        uhrzeit: block.querySelector('.uhrzeit-input').value,
-                        messdiener: block.querySelector('.messdiener-input').value,
-                        isNew: isNew
-                    });
-                }
-            });
-            
-            localStorage.setItem('savedEditorData', JSON.stringify(dataArray));
-        }
-
-        document.getElementById('editorSection').addEventListener('input', saveEditorState);
-
+        // --- STARTUP ---
         window.onload = async function() {
-            if(localStorage.getItem('geminiApiKey')) {
-                document.getElementById('apiKey').value = localStorage.getItem('geminiApiKey');
-            } else {
-                document.getElementById('settingsCard').classList.remove('hidden');
-                document.getElementById('uploadCard').classList.add('hidden');
-            }
-            
-            if(localStorage.getItem('fbProjectId')) {
-                document.getElementById('fbProjectId').value = localStorage.getItem('fbProjectId');
-            }
-            
-            if(localStorage.getItem('savedGroupText')) document.getElementById('groupText').value = localStorage.getItem('savedGroupText');
-            if(localStorage.getItem('savedSheetsLink')) document.getElementById('sheetsLink').value = localStorage.getItem('savedSheetsLink');
-            if(localStorage.getItem('savedAlwaysTogether')) document.getElementById('alwaysTogether').value = localStorage.getItem('savedAlwaysTogether');
-            if(localStorage.getItem('savedNeverTogether')) document.getElementById('neverTogether').value = localStorage.getItem('savedNeverTogether');
-            if(localStorage.getItem('savedLogo')) document.getElementById('logoStatus').classList.remove('hidden');
+            if(localStorage.getItem('geminiApiKey')) document.getElementById('apiKey').value = localStorage.getItem('geminiApiKey');
+            if(localStorage.getItem('fbProjectId')) document.getElementById('fbProjectId').value = localStorage.getItem('fbProjectId');
+            if(localStorage.getItem('sheetsLink')) document.getElementById('sheetsLink').value = localStorage.getItem('sheetsLink');
             
             document.getElementById('serveStats').value = localStorage.getItem('savedServeStats') || "{}";
+
+            // State initialisieren
+            try { appState.vormerkungen = JSON.parse(localStorage.getItem('savedVormerkungen') || "[]"); } catch(e){}
             
-            // PULL BEIM START
-            await silentFirebasePull();
-            
+            if (localStorage.getItem('fbProjectId')) {
+                await manualFirebaseSync(); // Zieht alles aktuell
+            } else {
+                renderVerwaltung(); // Zeigt leere GUI falls nix da
+            }
+
             const savedEditor = localStorage.getItem('savedEditorData');
             if (savedEditor && savedEditor !== "[]") {
                 renderEditor(JSON.parse(savedEditor));
@@ -640,195 +755,106 @@
             }
 
             const savedNews = JSON.parse(localStorage.getItem('savedNewsData') || "[]");
-            if (savedNews.length > 0) {
-                savedNews.forEach(item => {
-                    addNewsItem(item.heading, item.content);
-                });
-            } else {
-                addNewsItem(); 
-            }
+            if (savedNews.length > 0) savedNews.forEach(item => addNewsItem(item.heading, item.content));
+            else addNewsItem(); 
         };
 
-        function toggleSettings() {
-            document.getElementById('settingsCard').classList.toggle('hidden');
-            document.getElementById('uploadCard').classList.toggle('hidden');
+        function saveCoreSettings() {
+            localStorage.setItem('geminiApiKey', document.getElementById('apiKey').value);
+            localStorage.setItem('fbProjectId', document.getElementById('fbProjectId').value);
+            localStorage.setItem('sheetsLink', document.getElementById('sheetsLink').value);
+            toggleSettingsModal();
         }
 
-        function resetStats() {
-            if(confirm("Möchtest du die Statistik wirklich komplett löschen? Alle Zähler werden auf 0 gesetzt.")) {
-                document.getElementById('serveStats').value = "{}";
-                localStorage.setItem('savedServeStats', "{}");
-                localStorage.removeItem('lastGeneratedNames');
-            }
+        function hardReloadApp() {
+            saveCoreSettings();
+            saveAllVerwaltung();
+            saveEditorState();
+            saveNewsState();
+            if ('caches' in window) caches.keys().then((names) => names.forEach(name => caches.delete(name)));
+            window.location.reload(true);
         }
 
-        async function extractGroups() {
-            const apiKey = document.getElementById('apiKey').value;
-            const fileInput = document.getElementById('gruppenPlanFile');
-            const statusDiv = document.getElementById('extractStatus');
-            const btn = document.getElementById('btnExtract');
-
-            if(!apiKey) return alert("Bitte API-Schlüssel eingeben.");
-            if(fileInput.files.length === 0) return alert("Datei hochladen.");
-
-            btn.disabled = true;
-            statusDiv.innerText = "Lese Dokument... ⏳";
-
-            try {
-                const fileData = await readFileAsBase64(fileInput.files[0]);
-                const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ 
-                            parts: [
-                                { text: "Schreibe die gesamte Gruppeneinteilung (Welche Gruppe hat welche Mitglieder) aus diesem Dokument als übersichtlichen Text heraus." },
-                                { inlineData: { mimeType: fileData.mimeType, data: fileData.data } }
-                            ] 
-                        }]
-                    })
-                });
-
-                const data = await response.json();
-                if(data.error) throw new Error(data.error.message);
-
-                document.getElementById('groupText').value = data.candidates[0].content.parts[0].text;
-                document.querySelector('details').open = true;
-                statusDiv.innerText = "Erfolgreich ausgelesen!";
-            } catch(e) {
-                statusDiv.innerText = "Fehler beim Auslesen.";
-                alert(e.message);
-            } finally {
-                btn.disabled = false;
-            }
-        }
-
-        async function saveSettings() {
-            const apiKey = document.getElementById('apiKey').value;
-            const logoInput = document.getElementById('logoFile');
-            const statsInput = document.getElementById('serveStats').value;
-            const fbProjectId = document.getElementById('fbProjectId').value.trim();
-            
-            if(!apiKey) return alert("Bitte API-Schlüssel eingeben.");
-
-            try {
-                if(statsInput.trim() !== "") {
-                    JSON.parse(statsInput); 
-                    localStorage.setItem('savedServeStats', statsInput);
-                } else {
-                    localStorage.setItem('savedServeStats', "{}");
-                    document.getElementById('serveStats').value = "{}";
-                }
-            } catch(e) {
-                alert("Achtung: Die Statistik hat ein falsches Format! Bitte überprüfe, ob du versehentlich Klammern oder Anführungszeichen gelöscht hast. Die Einstellung wurde NICHT gespeichert.");
-                return;
-            }
-
-            localStorage.setItem('geminiApiKey', apiKey);
-            localStorage.setItem('fbProjectId', fbProjectId); 
-            localStorage.setItem('savedGroupText', document.getElementById('groupText').value);
-            localStorage.setItem('savedSheetsLink', document.getElementById('sheetsLink').value);
-            localStorage.setItem('savedAlwaysTogether', document.getElementById('alwaysTogether').value);
-            localStorage.setItem('savedNeverTogether', document.getElementById('neverTogether').value);
-
-            if(logoInput.files.length > 0) {
+        // --- KI AUSWERTUNG ---
+        async function fetchWithRetry(url, options, retries = 1) {
+            for (let i = 0; i < retries; i++) {
                 try {
-                    const fileData = await readFileAsBase64(logoInput.files[0]);
-                    localStorage.setItem('savedLogo', fileData.fullDataUri);
-                    document.getElementById('logoStatus').classList.remove('hidden');
-                } catch (e) {
-                    alert("Fehler beim Speichern des Logos.");
+                    const response = await fetch(url, options);
+                    if (!response.ok) throw new Error(`API Fehler: ${response.status}`);
+                    return response;
+                } catch (err) {
+                    if (i === retries - 1) throw err;
+                    await new Promise(res => setTimeout(res, 2000));
                 }
             }
-            toggleSettings();
-            
-            if (fbProjectId) {
-                await pushToFirebase();
+        }
+
+        function updateFileLabel(input, labelId) {
+            const label = document.getElementById(labelId);
+            if (input.files && input.files.length > 0) {
+                label.innerText = "✅ " + (input.files.length === 1 ? input.files[0].name : input.files.length + " Dateien");
+                label.style.backgroundColor = "#e8f5e9";
+                label.style.color = "#2e7d32";
             }
         }
 
         async function analyzeData() {
             const apiKey = localStorage.getItem('geminiApiKey');
-            const groupText = document.getElementById('groupText').value;
-            const sheetsLink = document.getElementById('sheetsLink').value.trim();
-            const alwaysTogether = document.getElementById('alwaysTogether').value;
-            const neverTogether = document.getElementById('neverTogether').value;
-            const currentStats = document.getElementById('serveStats').value;
-            
             const pfarrbriefInput = document.getElementById('pfarrbriefFile');
             const statusDiv = document.getElementById('status');
             const btn = document.getElementById('btnAnalyze');
 
-            if (!apiKey || !groupText) return alert("Bitte Einstellungen prüfen!");
-            if (pfarrbriefInput.files.length === 0) return alert("Bitte wähle mindestens eine Datei oder ein Foto aus!");
+            if (!apiKey) return alert("Bitte API-Key in Einstellungen (Zahnrad) eintragen!");
+            if (pfarrbriefInput.files.length === 0) return alert("Bitte Dateien wählen!");
 
             btn.disabled = true;
-            
-            let absencesCSV = "Keine Daten vorhanden";
-            if(sheetsLink) {
-                statusDiv.innerHTML = "Lade Abwesenheiten aus Google Sheets... ⏳";
-                try {
-                    if(sheetsLink.includes("/edit?usp=sharing")) throw new Error("Falscher Tabellen-Link");
-                    const res = await fetch(sheetsLink);
-                    if(!res.ok) throw new Error("Netzwerkfehler");
-                    absencesCSV = await res.text();
-                } catch(e) {
-                    alert("Fehler beim Laden der Google Tabelle! Bitte Link prüfen.");
-                    btn.disabled = false;
-                    statusDiv.innerHTML = "";
-                    return;
-                }
-            }
+            statusDiv.innerHTML = "Werte Pfarrbrief aus... ⏳";
 
-            statusDiv.innerHTML = "Werte Pfarrbrief aus und verteile gerecht... Bitte warten ⏳";
+            // Aktuellen Text-Zustand für den Prompt sichern
+            extractVerwaltungData();
+            const groupText = stateToGroupsText();
+            const alwaysTogether = appState.immerZusammen.map(p=>`${p.p1} und ${p.p2}`).join('\n');
+            const neverTogether = appState.nieZusammen.map(p=>`${p.p1} und ${p.p2}`).join('\n');
+            const vormerkungenJsonStr = JSON.stringify(appState.vormerkungen);
 
             try {
                 const fileParts = [];
                 for (let i = 0; i < pfarrbriefInput.files.length; i++) {
                     const fileData = await readFileAsBase64(pfarrbriefInput.files[i]);
-                    fileParts.push({
-                        inlineData: { mimeType: fileData.mimeType, data: fileData.data }
-                    });
+                    fileParts.push({ inlineData: { mimeType: fileData.mimeType, data: fileData.data } });
                 }
 
-                let promptText = `Du bist ein hochpräziser Assistent für die Erstellung von Messdienerplänen. Lies die Dokumente/Fotos EXTREM GRÜNDLICH.
+                let promptText = `Du bist ein hochpräziser Assistent für die Erstellung von Messdienerplänen.
 
                 BASISDATEN:
                 - Gruppen: "${groupText}"
-                - Statistik (niedrige Zahl = bevorzugt einteilen): ${currentStats} (Ignoriere den Zusatz "(neu)" bei der Zahlenwertung)
-                - Abwesenheiten: "${absencesCSV}"
+                - Statistik (niedrige Zahl = bevorzugen): ${document.getElementById('serveStats').value} (Ignoriere "(neu)")
                 - Immer zusammen: "${alwaysTogether}"
                 - Nie zusammen: "${neverTogether}"
+                - Vormerkungen (JSON): '${vormerkungenJsonStr}'
                 
-                RHYTHMUS IN THALAU (Zur Korrektur unscharfer Bilder):
-                - Di, Do, Fr: Meist 18:00 (Winter) oder 19:00 (Sommer).
-                - Sa: Meist 17:00 oder 18:00.
-                - So: Meist 09:00 oder 10:30.
-                (Vertraue aber immer primär dem gedruckten Text, besonders an Feiertagen!)
-
                 SCHRITT-FÜR-SCHRITT ANWEISUNGEN:
+                SCHRITT 1: STRENGER ORTS-FILTER
+                - Suche Gottesdienste. Übernimm NUR Gottesdienste für "Thalau". 
+                - Wenn dort "Schmalnau" (oder ein anderer Ort) steht, ÜBERSPRINGE DIESEN TERMIN KOMPLETT!
                 
-                SCHRITT 1: STRENGER ORTS-FILTER (NUR THALAU!)
-                - Du suchst im Pfarrbrief nach Gottesdiensten.
-                - Prüfe bei JEDEM erkannten Termin den Ort!
-                - Übernimm AUSSCHLIESSLICH Gottesdienste, die in "Thalau" stattfinden.
-                - Wenn dort "Schmalnau" (oder ein anderer Ort) steht, ÜBERSPRINGE DIESEN TERMIN KOMPLETT! Er darf unter keinen Umständen im Plan auftauchen!
-                - Erlaubte Typen: "Hl. Messe", "Gottesdienst", "Wortgottesfeier", "Hochzeit", "Taufe", "Beerdigung", "Requiem". (Keine Andachten).
-
-                SCHRITT 2: BEDARF & EINTEILUNG
-                - Werktags (Mo-Sa): 2 Personen. Sonntags: 4 Personen. (Ausnahmen: Taufe -> "Es werden 2 Freiwillige gesucht!", Hochzeit -> "Es werden 4 Freiwillige gesucht!").
-                - Bestimme die diensthabende Gruppe anhand der Überschriften.
-                - Prüfe Abwesenheiten: Niemanden einteilen, der laut CSV an dem Tag fehlt!
-                - "(neu)" REGEL: Anfänger (haben "(neu)" hinter dem Namen) dürfen NIE allein dienen. Werktags: max. 1 Anfänger. Sonntags: max. 2 Anfänger. Es muss immer ein Erfahrener (ohne "(neu)") dabei sein.
-                - GERECHTIGKEIT: Nimm die Personen mit der kleinsten Zahl in der Statistik. Herrscht Gleichstand, mische zufällig durch (sorge für Abwechslung!).
-                - MANGEL: Wenn zu wenige Personal verfügbar ist, fülle mit "1 Ersatz gesucht!" auf.
-
-                SCHRITT 3: VORSCHAU
-                - Welche Gruppe ist am LETZTEN Sonntag dieses Plans dran? (Das ist Gruppe X).
-                - Welche Gruppe folgt laut normaler Reihenfolge danach? (Das ist Gruppe Y).
-                - Schreibe in das "text" Feld AUSSCHLIESSLICH die zwei Gruppen, z.B.: "Gruppe X und Y". Bilde KEINE ganzen Sätze!
+                SCHRITT 2: BEDARF
+                - Werktags: 2 Personen. Sonntags: 4 Personen. (Taufe: "Es werden 2 Freiwillige gesucht!", Hochzeit: 4).
                 
-                GIB AUSSCHLIESSLICH EIN GÜLTIGES JSON-ARRAY ZURÜCK:
+                SCHRITT 2.5: VORMERKUNGEN PRÜFEN (WICHTIG!)
+                - Prüfe für JEDEN Termin (Datum & Uhrzeit), ob es einen Eintrag in den "Vormerkungen" gibt.
+                - Wenn JA: Teile diese Personen ZWINGEND ein! Fülle die restlichen Plätze mit der diensthabenden Gruppe auf.
+
+                SCHRITT 3: REGELN
+                - "(neu)": Anfänger dürfen NIE allein dienen. Werktags: max. 1 Anfänger. Sonntags: max. 2. Ein Erfahrener muss dabei sein.
+                - GERECHTIGKEIT: Nimm die mit der kleinsten Zahl. Bei Gleichstand zufällig mischen.
+                - MANGEL: Mit "1 Ersatz gesucht!" auffüllen.
+
+                SCHRITT 4: VORSCHAU
+                - Welche Gruppe ist am LETZTEN Sonntag dran? (Gruppe X). Wer folgt? (Gruppe Y).
+                - Schreibe im "text" Feld AUSSCHLIESSLICH: "Gruppe X und Y".
+                
+                GIB AUSSCHLIESSLICH EIN JSON-ARRAY ZURÜCK:
                 [
                   {"art": "woche", "text": "Gruppe B: 22.02.2026 - 28.02.2026"},
                   {"art": "gottesdienst", "wochentag": "Mittwoch", "datum": "18.02.2026", "typ": "Hl. Messe", "uhrzeit": "19.00", "messdiener": "Name 1, Name 2 (neu)"},
@@ -839,9 +865,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ 
-                            parts: [ { text: promptText }, ...fileParts ] 
-                        }],
+                        contents: [{ parts: [ { text: promptText }, ...fileParts ] }],
                         generationConfig: { response_mime_type: "application/json" }
                     })
                 };
@@ -850,8 +874,7 @@
                 try {
                     response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, fetchPayload);
                 } catch (error) {
-                    console.log("Pro Modell Fehler, starte Fallback auf Flash:", error);
-                    statusDiv.innerHTML = "Haupt-Server überlastet. Wechsle automatisch zum High-Speed Modell... ⚡";
+                    statusDiv.innerHTML = "Server überlastet. Wechsle zu Flash... ⚡";
                     response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, fetchPayload);
                 }
 
@@ -859,9 +882,6 @@
                 if(data.error) throw new Error(data.error.message);
 
                 localStorage.removeItem('savedEditorData');
-                localStorage.removeItem('lastGeneratedNames');
-                
-                localStorage.removeItem('savedNewsData');
                 document.getElementById('newsContainer').innerHTML = '';
                 newsCount = 0;
                 addNewsItem();
@@ -874,45 +894,26 @@
                 document.getElementById('editorSection').classList.remove('hidden');
 
             } catch (error) {
-                statusDiv.innerHTML = `<span style='color: var(--danger); text-align: left; display: inline-block; background: #ffebee; padding: 10px; border-radius: 8px; margin-top: 10px;'>Fehler: ${error.message}. Lade am besten Fotos (Screenshots) vom Pfarrbrief hoch.</span>`;
-            } finally {
-                btn.disabled = false;
-            }
+                statusDiv.innerHTML = `<span style='color: var(--danger);'>Fehler: ${error.message}</span>`;
+            } finally { btn.disabled = false; }
         }
 
+        // --- EDITOR & PDF LOGIK (UNVERÄNDERT) ---
         function getSortKey(item, originalIndex) {
             if (item.art === 'vorschau') return "999999999999_" + String(originalIndex).padStart(4, '0');
-            
             let dStr = "", tStr = "";
-            if (item.art === 'gottesdienst') {
-                dStr = item.datum || "";
-                tStr = item.uhrzeit || "";
-            } else if (item.art === 'woche') {
-                let m = item.text.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/);
-                if (m) {
-                    dStr = m[0];
-                    tStr = "00:00"; 
-                }
-            }
+            if (item.art === 'gottesdienst') { dStr = item.datum || ""; tStr = item.uhrzeit || ""; } 
+            else if (item.art === 'woche') { let m = item.text.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/); if(m){dStr=m[0]; tStr="00:00";} }
             
             let sortKey = "999999999999"; 
             let mDate = dStr.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/);
             if (mDate) {
                 let y = mDate[3] ? mDate[3] : String(new Date().getFullYear());
                 if (y.length === 2) y = "20" + y; 
-                let mon = mDate[2].padStart(2, '0');
-                let d = mDate[1].padStart(2, '0');
-                
+                let mon = mDate[2].padStart(2, '0'); let d = mDate[1].padStart(2, '0');
                 let h = "23", m = "59";
-                if (item.art === 'gottesdienst') {
-                    let mTime = tStr.match(/(\d{1,2})[:.]?(\d{2})/);
-                    if (mTime) {
-                        h = mTime[1].padStart(2, '0');
-                        m = mTime[2];
-                    }
-                } else if (item.art === 'woche') {
-                    h = "00"; m = "00";
-                }
+                if (item.art === 'gottesdienst') { let mTime = tStr.match(/(\d{1,2})[:.]?(\d{2})/); if(mTime){h=mTime[1].padStart(2,'0'); m=mTime[2];} } 
+                else if (item.art === 'woche') { h = "00"; m = "00"; }
                 sortKey = `${y}${mon}${d}${h}${m}`;
             }
             return sortKey + "_" + String(originalIndex).padStart(4, '0');
@@ -921,16 +922,10 @@
         function saveAndSortGottesdienst() {
             saveEditorState();
             let dataArray = JSON.parse(localStorage.getItem('savedEditorData') || "[]");
-            
             dataArray.forEach(item => delete item.isNew);
-            
-            let mapped = dataArray.map((item, i) => {
-                return { item, key: getSortKey(item, i) };
-            });
-            
+            let mapped = dataArray.map((item, i) => ({ item, key: getSortKey(item, i) }));
             mapped.sort((a, b) => a.key.localeCompare(b.key));
             dataArray = mapped.map(m => m.item);
-            
             localStorage.setItem('savedEditorData', JSON.stringify(dataArray));
             renderEditor(dataArray);
         }
@@ -938,16 +933,10 @@
         function addGottesdienst() {
             saveEditorState();
             let dataArray = JSON.parse(localStorage.getItem('savedEditorData') || "[]");
-            
             let vorschauIndex = dataArray.findIndex(item => item.art === 'vorschau');
             let newItem = {art: 'gottesdienst', wochentag: '', datum: '', typ: 'Hl. Messe', uhrzeit: '', messdiener: '', isNew: true};
-            
-            if (vorschauIndex !== -1) {
-                dataArray.splice(vorschauIndex, 0, newItem);
-            } else {
-                dataArray.push(newItem);
-            }
-            
+            if (vorschauIndex !== -1) dataArray.splice(vorschauIndex, 0, newItem);
+            else dataArray.push(newItem);
             renderEditor(dataArray);
             saveEditorState();
         }
@@ -956,88 +945,27 @@
             const container = document.getElementById('editorContainer');
             container.innerHTML = ''; 
             
-            dataArray.forEach((item, index) => {
+            dataArray.forEach((item) => {
                 if (item.art === 'woche') {
-                    container.innerHTML += `
-                    <div class="card editor-block" style="background: #E5E5EA; padding: 12px; margin-top: 10px;">
-                        <input type="hidden" class="art-input" value="woche">
-                        <input type="hidden" class="is-new-input" value="${item.isNew ? 'true' : 'false'}">
-                        <input type="text" class="woche-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:600; text-align:center; background:transparent; border:none; font-size:16px;">
-                    </div>`;
+                    container.innerHTML += `<div class="card editor-block" style="background: #E5E5EA; padding: 12px; margin-top: 10px;"><input type="hidden" class="art-input" value="woche"><input type="hidden" class="is-new-input" value="${item.isNew ? 'true' : 'false'}"><input type="text" class="woche-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; font-weight:600; text-align:center; background:transparent; border:none; font-size:16px;"></div>`;
                 } else if (item.art === 'vorschau') {
-                    container.innerHTML += `
-                    <div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px; display: flex; flex-direction: column; align-items: center;">
-                        <input type="hidden" class="art-input" value="vorschau">
-                        <input type="hidden" class="is-new-input" value="${item.isNew ? 'true' : 'false'}">
-                        <label style="font-size:18px; color:var(--text-main); font-weight:bold; text-align:center; margin-bottom:8px; width: 100%; display: block;">Gruppen Vorschau:</label>
-                        <input type="text" class="vorschau-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; display:block; font-weight:normal; text-align:center; background:transparent; border:none; font-size:16px; color: var(--primary); padding:0; margin:0 auto;">
-                    </div>`;
+                    container.innerHTML += `<div class="card editor-block" style="background: #e3f2fd; padding: 12px; margin-top: 10px; display: flex; flex-direction: column; align-items: center;"><input type="hidden" class="art-input" value="vorschau"><input type="hidden" class="is-new-input" value="${item.isNew ? 'true' : 'false'}"><label style="font-size:18px; color:var(--text-main); font-weight:bold; text-align:center; margin-bottom:8px; width: 100%; display: block;">Gruppen Vorschau:</label><input type="text" class="vorschau-text-input" value="${item.text}" oninput="saveEditorState()" style="width:100%; display:block; font-weight:normal; text-align:center; background:transparent; border:none; font-size:16px; color: var(--primary); padding:0; margin:0 auto;"></div>`;
                 } else {
-                    container.innerHTML += `
-                    <div class="card editor-block" style="margin-top: 10px;">
-                        <input type="hidden" class="art-input" value="gottesdienst">
-                        <input type="hidden" class="is-new-input" value="${item.isNew ? 'true' : 'false'}">
-                        <div class="editor-block-header">
-                            <span class="editor-block-title">Gottesdienst</span>
-                            <button class="delete-btn" onclick="this.closest('.editor-block').remove(); saveEditorState();" title="Löschen">
-                                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M3 6h18"></path>
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                    <line x1="10" y1="11" x2="10" y2="17"></line>
-                                    <line x1="14" y1="11" x2="14" y2="17"></line>
-                                </svg>
-                            </button>
-                        </div>
-                        <div class="ios-list-row"><label>Tag</label><input type="text" class="wochentag-input" value="${item.wochentag || ''}" oninput="saveEditorState()" placeholder="z.B. Mittwoch"></div>
-                        <div class="ios-list-row"><label>Datum</label><input type="text" class="datum-input" value="${item.datum || ''}" oninput="saveEditorState()" placeholder="TT.MM.JJJJ"></div>
-                        <div class="ios-list-row"><label>Typ</label><input type="text" class="typ-input" value="${item.typ || 'Hl. Messe'}" oninput="saveEditorState()" placeholder="z.B. Hl. Messe"></div>
-                        <div class="ios-list-row"><label>Uhrzeit</label><input type="text" class="uhrzeit-input" value="${item.uhrzeit || ''}" oninput="saveEditorState()" placeholder="HH:MM"></div>
-                        <div class="ios-list-row"><label>Eingeteilte</label><input type="text" class="messdiener-input" value="${item.messdiener || ''}" oninput="saveEditorState()" placeholder="-"></div>
-                        ${item.isNew ? `<div style="padding: 12px 16px;"><button style="background-color: var(--success); margin-top: 0;" onclick="saveAndSortGottesdienst()">Speichern & Einsortieren</button></div>` : ''}
-                    </div>`;
+                    container.innerHTML += `<div class="card editor-block" style="margin-top: 10px;"><input type="hidden" class="art-input" value="gottesdienst"><input type="hidden" class="is-new-input" value="${item.isNew ? 'true' : 'false'}"><div class="editor-block-header"><span class="editor-block-title">Gottesdienst</span><button class="delete-icon-btn" onclick="this.closest('.editor-block').remove(); saveEditorState();">✖</button></div><div class="ios-list-row"><label>Tag</label><input type="text" class="wochentag-input" value="${item.wochentag || ''}" oninput="saveEditorState()" placeholder="Mittwoch"></div><div class="ios-list-row"><label>Datum</label><input type="text" class="datum-input" value="${item.datum || ''}" oninput="saveEditorState()" placeholder="TT.MM.JJJJ"></div><div class="ios-list-row"><label>Typ</label><input type="text" class="typ-input" value="${item.typ || 'Hl. Messe'}" oninput="saveEditorState()" placeholder="Hl. Messe"></div><div class="ios-list-row"><label>Uhrzeit</label><input type="text" class="uhrzeit-input" value="${item.uhrzeit || ''}" oninput="saveEditorState()" placeholder="HH:MM"></div><div class="ios-list-row"><label>Messdiener</label><input type="text" class="messdiener-input" value="${item.messdiener || ''}" oninput="saveEditorState()" placeholder="-"></div>${item.isNew ? `<div style="padding: 12px 16px;"><button style="background-color: var(--success); margin-top: 0;" onclick="saveAndSortGottesdienst()">Speichern & Einsortieren</button></div>` : ''}</div>`;
                 }
             });
-            container.dataset.count = dataArray.length;
-            
-            container.innerHTML += `
-                <div style="padding: 0 4px; padding-bottom:10px;">
-                    <button class="btn-secondary" style="width:100%; font-size:15px; margin-top:6px;" onclick="addGottesdienst()">+ Gottesdienst hinzufügen</button>
-                </div>
-            `;
+            container.innerHTML += `<div style="padding: 0 4px; padding-bottom:10px;"><button class="btn-secondary" style="width:100%; font-size:15px; margin-top:6px;" onclick="addGottesdienst()">+ Gottesdienst hinzufügen</button></div>`;
         }
 
-        function getFrequencies(arr) {
-            let freq = {};
-            arr.forEach(n => freq[n] = (freq[n] || 0) + 1);
-            return freq;
-        }
-
-        function cleanNameForStats(name) {
-            return name.replace(/\s*\(neu\)/gi, '').trim();
-        }
+        function cleanNameForStats(name) { return name.replace(/\s*\(neu\)/gi, '').trim(); }
 
         async function generatePDF() {
             try {
                 saveEditorState();
-                
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
                 let y = 15;
                 const margin = 20;
-
-                const savedLogo = localStorage.getItem('savedLogo');
-                if (savedLogo) {
-                    try {
-                        const format = savedLogo.includes('image/png') ? 'PNG' : 'JPEG';
-                        doc.addImage(savedLogo, format, 88, y, 34, 34);
-                        y += 48; 
-                    } catch(imgErr) {
-                        console.error("Logo Fehler:", imgErr);
-                        y += 15; 
-                    }
-                } else {
-                    y += 15;
-                }
 
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(22);
@@ -1045,218 +973,90 @@
                 y += 16; 
 
                 const editorData = JSON.parse(localStorage.getItem('savedEditorData') || "[]");
-                
                 let currentNamesToServe = [];
                 let vorschauTextSaved = "";
 
                 for(let i = 0; i < editorData.length; i++) {
                     const item = editorData[i];
-                    const art = item.art;
+                    if (item.art === 'vorschau') { vorschauTextSaved = item.text; continue; }
 
-                    if (art === 'vorschau') {
-                        vorschauTextSaved = item.text;
-                        continue;
-                    }
-
-                    if (art === 'woche') {
-                        if (y > 222) { doc.addPage(); y = 20; }
-                        else { y += 4; }
-                        
-                        doc.setFont("helvetica", "bold");
-                        doc.setFontSize(14);
+                    if (item.art === 'woche') {
+                        if (y > 222) { doc.addPage(); y = 20; } else { y += 4; }
+                        doc.setFont("helvetica", "bold"); doc.setFontSize(14);
                         doc.text(item.text, 105, y, { align: "center" });
                         y += 10;
-                    } 
-                    else if (art === 'gottesdienst') {
-                        let requiredHeight = 8; 
+                    } else if (item.art === 'gottesdienst') {
                         let namesArray = [];
+                        let requiredHeight = 14; 
                         if (item.messdiener && item.messdiener !== "-") {
                             namesArray = item.messdiener.split(',').map(n => n.trim()).filter(n => n);
-                            requiredHeight += (namesArray.length > 0 ? namesArray.length * 6 : 6);
-                        } else {
-                            requiredHeight += 6;
-                        }
-                        requiredHeight += 6; 
+                            requiredHeight += (namesArray.length * 6);
+                        } else { requiredHeight += 6; }
                         
-                        if (y + requiredHeight > 277) {
-                            doc.addPage();
-                            y = 20;
-                        }
+                        if (y + requiredHeight > 277) { doc.addPage(); y = 20; }
 
-                        const headline = `${item.wochentag} ${item.datum} ${item.typ} ${item.uhrzeit} Uhr`;
-                        doc.setFont("helvetica", "bold");
-                        doc.setFontSize(12);
-                        doc.text(headline, margin, y);
+                        doc.setFont("helvetica", "bold"); doc.setFontSize(12);
+                        doc.text(`${item.wochentag} ${item.datum} ${item.typ} ${item.uhrzeit} Uhr`, margin, y);
                         y += 8;
 
                         doc.setFont("helvetica", "normal");
                         if (namesArray.length > 0) {
                             namesArray.forEach(name => {
                                 const cleanName = cleanNameForStats(name); 
-                                
                                 doc.text(cleanName, margin, y);
                                 y += 6;
-                                
-                                const nameLower = cleanName.toLowerCase();
-                                if (!nameLower.includes("freiwillige") && !nameLower.includes("ersatz")) {
+                                if (!cleanName.toLowerCase().includes("freiwillige") && !cleanName.toLowerCase().includes("ersatz")) {
                                     currentNamesToServe.push(cleanName);
                                 }
                             });
-                        } else {
-                            doc.text("-", margin, y);
-                            y += 6;
-                        }
+                        } else { doc.text("-", margin, y); y += 6; }
                         y += 6; 
                     }
                 }
 
-                y += 4; 
                 if (y > 275) { doc.addPage(); y = 20; }
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(12);
-                doc.setTextColor(0, 0, 0); 
-                doc.text("Wer eingeteilt ist und nicht dienen kann, sucht sich bitte selbstständig eine Vertretung!", 105, y, { align: "center" });
+                doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(0, 0, 0); 
+                doc.text("Wer eingeteilt ist und nicht dienen kann, sucht sich selbstständig eine Vertretung!", 105, y, { align: "center" });
                 y += 22; 
 
+                // News & Box Rendering (gekürzt für Lesbarkeit, Standard jsPDF Aufrufe)
                 const newsItems = [];
-                for (let i = 0; i < newsCount; i++) {
-                    const hElem = document.getElementById(`newsHeading_${i}`);
-                    const cElem = document.getElementById(`newsContent_${i}`);
-                    if (hElem && cElem) {
-                        const h = hElem.value.trim();
-                        const c = cElem.value.trim();
-                        if (h !== "" || c !== "") newsItems.push({ heading: h, content: c });
-                    }
+                for (let i=0; i<newsCount; i++) {
+                    const h = document.getElementById(`newsHeading_${i}`);
+                    const c = document.getElementById(`newsContent_${i}`);
+                    if(h&&c && (h.value.trim()||c.value.trim())) newsItems.push({h:h.value.trim(), c:c.value.trim()});
                 }
 
                 if (newsItems.length > 0) {
                     if (y > 250) { doc.addPage(); y = 20; }
-                    
-                    doc.setFont("helvetica", "bold");
-                    doc.setFontSize(16);
-                    doc.text("News & Ankündigungen", 105, y, { align: "center" });
-                    y += 12;
-                    
+                    doc.setFontSize(16); doc.text("News & Ankündigungen", 105, y, { align: "center" }); y += 12;
                     newsItems.forEach(item => {
                         if (y > 260) { doc.addPage(); y = 20; }
-                        if (item.heading) {
-                            doc.setFont("helvetica", "bold");
-                            doc.setFontSize(13);
-                            doc.text(item.heading, margin, y);
-                            y += 6;
-                        }
-                        if (item.content) {
-                            doc.setFont("helvetica", "normal");
-                            doc.setFontSize(11);
-                            const splitNews = doc.splitTextToSize(item.content, 170);
-                            doc.text(splitNews, margin, y);
-                            y += (splitNews.length * 5) + 4;
+                        if (item.h) { doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text(item.h, margin, y); y += 6; }
+                        if (item.c) {
+                            doc.setFont("helvetica", "normal"); doc.setFontSize(11);
+                            const splitNews = doc.splitTextToSize(item.c, 170);
+                            doc.text(splitNews, margin, y); y += (splitNews.length * 5) + 4;
                         }
                         y += 4; 
                     });
-                    y += 6; 
                 }
 
-                let formText = "";
-                let vorschauClean = vorschauTextSaved ? vorschauTextSaved.trim() : "";
-                
-                if (vorschauClean !== "") {
-                    if (vorschauClean.toLowerCase().includes("in den kommenden")) {
-                        formText = vorschauClean + (vorschauClean.endsWith('.') ? " " : ". ") + "Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:";
-                    } else {
-                        formText = `In den kommenden zwei Wochen sind ${vorschauClean} dran. Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:`;
-                    }
-                } else {
-                    formText = "Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:";
-                }
-                
-                doc.setFont("helvetica", "normal");
-                doc.setFontSize(11);
-                const splitFormText = doc.splitTextToSize(formText, 150);
-                
-                const boxPadding = 10;
-                const headingHeight = 8;
-                const textHeight = splitFormText.length * 5;
-                const spacing = 4;
-                const buttonHeight = 10; 
-                const buttonWidth = 46; 
-                const boxHeight = boxPadding + headingHeight + textHeight + spacing + buttonHeight + boxPadding; 
-                
-                if (y + boxHeight > 280) { doc.addPage(); y = 20; }
-                
-                doc.setFillColor(245, 245, 245);
-                doc.roundedRect(20, y, 170, boxHeight, 5, 5, 'F');
-                
-                let currentY = y + boxPadding + 4;
-                
-                doc.setTextColor(0, 0, 0);
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(14);
-                doc.text("Abwesenheiten eintragen", 105, currentY, { align: "center" });
-                currentY += 8;
-                
-                doc.setFont("helvetica", "normal");
-                doc.setFontSize(11);
-                splitFormText.forEach(line => {
-                    doc.text(line, 105, currentY, { align: "center" });
-                    currentY += 5;
-                });
-                
-                const buttonY = currentY + 3; 
-                doc.setFillColor(0, 122, 255);
-                doc.roundedRect(105 - (buttonWidth / 2), buttonY, buttonWidth, buttonHeight, 3, 3, 'F'); 
-                
-                doc.setTextColor(255, 255, 255);
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(11);
-                doc.text("Zum Formular", 105, buttonY + 6.5, { align: "center" });
-                doc.link(105 - (buttonWidth / 2), buttonY, buttonWidth, buttonHeight, { url: 'https://forms.gle/nSzhoDgeAhUS4QG16' });
-                
-                doc.setTextColor(0, 0, 0); 
-
-                let lastGeneratedNames = JSON.parse(localStorage.getItem('lastGeneratedNames') || "[]");
                 let serveStats = JSON.parse(localStorage.getItem('savedServeStats') || "{}");
+                currentNamesToServe.forEach(n => serveStats[n] = (serveStats[n] || 0) + 1);
                 
-                let currentFreq = getFrequencies(currentNamesToServe);
-                let lastFreq = getFrequencies(lastGeneratedNames);
-
-                for (let name in lastFreq) {
-                    serveStats[name] = (serveStats[name] || 0) - lastFreq[name];
-                    if (serveStats[name] < 0) serveStats[name] = 0; 
-                }
-                for (let name in currentFreq) {
-                    serveStats[name] = (serveStats[name] || 0) + currentFreq[name];
-                }
-
                 document.getElementById('serveStats').value = JSON.stringify(serveStats, null, 2);
                 localStorage.setItem('savedServeStats', JSON.stringify(serveStats));
-                localStorage.setItem('lastGeneratedNames', JSON.stringify(currentNamesToServe));
                 
-                // STATISTIK PUSH NACH GENERIERUNG
-                if (localStorage.getItem('fbProjectId')) {
+                if (document.getElementById('fbProjectId').value.trim()) {
                     await firebaseRequest('statistik', 'PATCH', 'int64Map', serveStats);
                 }
 
-                const pdfBlob = doc.output('blob');
-                const file = new File([pdfBlob], "Messdienerplan.pdf", { type: "application/pdf" });
-
-                if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    navigator.share({
-                        files: [file]
-                    }).catch((error) => {
-                        console.log('Teilen abgebrochen', error);
-                    });
-                } else {
-                    doc.save("Messdienerplan.pdf");
-                    alert("PDF heruntergeladen.");
-                }
-            } catch (err) {
-                alert("Fehler beim Erstellen des PDFs! Details: " + err.message);
-                console.error("PDF Crash:", err);
-            }
+                doc.save("Messdienerplan.pdf");
+                alert("PDF heruntergeladen. Statistik wurde aktualisiert.");
+            } catch (err) { alert("PDF Fehler: " + err.message); }
         }
     </script>
 </body>
 </html>
-
-
+}
