@@ -17,7 +17,7 @@
     <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=3">
     <link rel="shortcut icon" href="icon.png?v=3">
 
-    <title>Messdienerplan v26.5</title>
+    <title>Messdienerplan v26.6</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -157,7 +157,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdiener</h1>
-            <span class="version">v26.5</span>
+            <span class="version">v26.6</span>
         </div>
         <button class="settings-btn" onclick="toggleSettingsModal()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -264,19 +264,19 @@
         <div class="nav-item" onclick="switchTab('verwaltung')">Verwaltung</div>
     </nav>
 
-    <!-- HIER BEGINNT DAS EINZIGE, ALLUMFASSENDE SCRIPT -->
+    <!-- SCRIPT -->
     <script>
         let newsCount = 0;
         let localIsDirty = false; 
 
         // --- GLOBAL STATE ---
         let appState = {
-            gruppen: [], // {id, name, mitglieder: [name1, name2]}
-            neueMinis: [], // [name1, name2]
-            immerZusammen: [], // {id, p1, p2}
-            nieZusammen: [], // {id, p1, p2}
-            vormerkungen: [], // {id, datum, uhrzeit, wochentag, anlass, minis: []}
-            serveStats: {} // { "Name": Zahl }
+            gruppen: [], 
+            neueMinis: [], 
+            immerZusammen: [], 
+            nieZusammen: [], 
+            vormerkungen: [], 
+            serveStats: {} 
         };
 
         // --- HILFSFUNKTIONEN ---
@@ -294,7 +294,6 @@
             return Array.from(names).sort();
         }
 
-        // Fotos für die KI laden
         function readFileAsBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -304,7 +303,6 @@
             });
         }
 
-        // UI Dateiname aktualisieren
         function updateFileLabel(input, labelId) {
             const label = document.getElementById(labelId);
             if (input.files && input.files.length > 0) {
@@ -650,7 +648,7 @@
             document.getElementById(containerId).appendChild(createRuleBlockDOM({}));
         }
 
-        // --- DATEN EXTRAKTION VERWALTUNG ---
+        // --- DATEN EXTRAKTION ---
         function extractVerwaltungData() {
             appState.vormerkungen = Array.from(document.getElementById('vormerkungen-container').children).map(block => {
                 const minis = Array.from(block.querySelectorAll('.autocomplete-wrapper input')).map(i => i.value.trim()).filter(v => v);
@@ -893,7 +891,7 @@
             toggleSettingsModal();
         }
 
-        // --- EDITOR SPEICHERN LOGIK WIEDERHERGESTELLT ---
+        // --- EDITOR SPEICHERN LOGIK ---
         function saveNewsState() {
             const newsItems = [];
             for (let i = 0; i < newsCount; i++) {
@@ -988,6 +986,7 @@
             btn.disabled = true;
             statusDiv.innerHTML = "Werte Pfarrbrief aus... ⏳";
 
+            extractVerwaltungData();
             const groupText = stateToGroupsText();
             const alwaysTogether = appState.immerZusammen.map(p=>`${p.p1} und ${p.p2}`).join('\n');
             const neverTogether = appState.nieZusammen.map(p=>`${p.p1} und ${p.p2}`).join('\n');
@@ -1135,8 +1134,8 @@
 
         function cleanNameForStats(name) { return name.replace(/\s*\(neu\)/gi, '').trim(); }
 
-        // --- PDF GENERIERUNG ---
-        async function generatePDF() {
+        // --- DIRECT SHARE PDF GENERIERUNG ---
+        function generatePDF() {
             try {
                 saveEditorState();
                 const { jsPDF } = window.jspdf;
@@ -1255,22 +1254,32 @@
                 doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(11);
                 doc.text("Zum Formular", 105, buttonY + 6.5, { align: "center" });
                 doc.link(105 - 23, buttonY, 46, 10, { url: 'https://forms.gle/nSzhoDgeAhUS4QG16' });
-                
                 doc.setTextColor(0, 0, 0); 
 
-                // STATISTIK UPDATE
+                // 1. STATISTIK LOKAL UPDATEN (Synchron)
                 currentNamesToServe.forEach(n => appState.serveStats[n] = (appState.serveStats[n] || 0) + 1);
                 localStorage.setItem('savedServeStats', JSON.stringify(appState.serveStats));
                 renderStatsUI(); 
-                
-                // UPLOAD DES AKTUELLEN PLANS & STATS IN DIE CLOUD
+
+                // 2. FIREBASE UPLOAD (Asynchron im Hintergrund, blockiert nicht!)
                 if (document.getElementById('fbProjectId').value.trim()) {
-                    await firebaseRequest('statistik', 'PATCH', 'int64Map', appState.serveStats);
-                    await pushAktuellerPlan(); 
+                    firebaseRequest('statistik', 'PATCH', 'int64Map', appState.serveStats);
+                    pushAktuellerPlan(); 
                 }
 
-                doc.save("Messdienerplan.pdf");
-                alert("PDF heruntergeladen. Statistik & Plan in der Cloud aktualisiert.");
+                // 3. SOFORTIGES TEILEN (Damit iOS den Button-Klick nicht vergisst!)
+                const pdfBlob = doc.output('blob');
+                const file = new File([pdfBlob], "Messdienerplan.pdf", { type: "application/pdf" });
+
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    navigator.share({
+                        files: [file],
+                        title: 'Messdienerplan'
+                    }).catch(console.error);
+                } else {
+                    doc.save("Messdienerplan.pdf");
+                }
+
             } catch (err) { alert("PDF Fehler: " + err.message); }
         }
     </script>
