@@ -17,7 +17,7 @@
     <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=3">
     <link rel="shortcut icon" href="icon.png?v=3">
 
-    <title>Messdienerplan v27.1</title>
+    <title>Messdienerplan v27.2</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -157,7 +157,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdiener</h1>
-            <span class="version">v27.1</span>
+            <span class="version">v27.2</span>
         </div>
         <button class="settings-btn" onclick="toggleSettingsModal()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -288,7 +288,7 @@
             });
         }
 
-        // Extrahiert NUR valide Namen, die wirklich in einer Gruppe existieren!
+        // Nur aktive Gruppennamen extrahieren
         function getAllKnownNames() {
             const names = new Set();
             appState.gruppen.forEach(g => g.mitglieder.forEach(m => {
@@ -329,6 +329,7 @@
             document.querySelector(`.nav-item[onclick="switchTab('${tabName}')"]`).classList.add('active');
             
             if (tabName === 'verwaltung') {
+                // Alle Klappmenüs einklappen!
                 document.querySelectorAll('#verwaltung-tab details').forEach(d => d.open = false);
                 if (localStorage.getItem('fbProjectId')) {
                     await silentFirebasePull();
@@ -481,20 +482,15 @@
             const container = document.getElementById('stats-ui-container');
             container.innerHTML = '';
             
-            // DIE WICHTIGSTE ÄNDERUNG: Nur aktive Gruppenmitglieder anzeigen!
+            // Auto-Clean der Statistik (löscht Metadaten und inaktive)
             const activeNames = getAllKnownNames();
             const cleanStats = {};
-
-            // Befülle die saubere Statistik nur mit bekannten Namen
             activeNames.forEach(name => {
                 cleanStats[name] = appState.serveStats[name] || 0;
             });
-
-            // Speichere die sofort bereinigte Statistik im State (Metadaten sind jetzt gelöscht!)
             appState.serveStats = cleanStats;
             localStorage.setItem('savedServeStats', JSON.stringify(appState.serveStats));
 
-            // Zeichne UI
             activeNames.forEach(name => {
                 const count = appState.serveStats[name];
                 const row = document.createElement('div');
@@ -717,10 +713,9 @@
 
         async function saveAllVerwaltung() {
             saveVerwaltungLocal();
-            renderStatsUI(); // Einmal zur Sicherheit durchputzen
             if (document.getElementById('fbProjectId').value.trim()) {
                 await pushToFirebaseSilent();
-                localIsDirty = false; 
+                localIsDirty = false;
             }
             alert("Lokal & in der Cloud gespeichert!");
         }
@@ -812,7 +807,6 @@
 
         async function pushToFirebaseSilent() {
             if(!localStorage.getItem('fbProjectId')) return;
-            // Stelle sicher, dass hier NUR ECHTE NAMEN hochgeladen werden!
             await firebaseRequest('statistik', 'PATCH', 'int64Map', appState.serveStats);
             await firebaseRequest('regeln', 'PATCH', 'jsonStrings', {
                 immerZusammenJson: JSON.stringify(appState.immerZusammen),
@@ -913,6 +907,14 @@
             localStorage.setItem('fbProjectId', document.getElementById('fbProjectId').value);
             localStorage.setItem('sheetsLink', document.getElementById('sheetsLink').value);
             toggleSettingsModal();
+        }
+
+        function resetStats() {
+            if(confirm("Möchtest du die Statistik wirklich komplett löschen? Alle Zähler werden auf 0 gesetzt.")) {
+                appState.serveStats = {};
+                localStorage.setItem('savedServeStats', "{}");
+                renderStatsUI();
+            }
         }
 
         // --- EDITOR SPEICHERN LOGIK ---
@@ -1224,7 +1226,7 @@
                         doc.setFont("helvetica", "normal");
                         if (namesArray.length > 0) {
                             namesArray.forEach(name => {
-                                const cleanName = cleanNameForStats(name); 
+                                const cleanName = name.replace(/\s*\(neu\)/gi, '').trim(); 
                                 doc.text(cleanName, margin, y);
                                 y += 6;
                                 if (!cleanName.toLowerCase().includes("freiwillige") && !cleanName.toLowerCase().includes("ersatz")) {
@@ -1291,7 +1293,6 @@
                 doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(11);
                 doc.text("Zum Formular", 105, buttonY + 6.5, { align: "center" });
                 doc.link(105 - 23, buttonY, 46, 10, { url: 'https://forms.gle/nSzhoDgeAhUS4QG16' });
-                
                 doc.setTextColor(0, 0, 0); 
 
                 // --- DELTA-STATISTIK BERECHNUNG ---
