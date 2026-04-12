@@ -17,7 +17,7 @@
     <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=3">
     <link rel="shortcut icon" href="icon.png?v=3">
 
-    <title>Messdienerplan v26.3</title>
+    <title>Messdienerplan v26.4</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -157,7 +157,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdiener</h1>
-            <span class="version">v26.3</span>
+            <span class="version">v26.4</span>
         </div>
         <button class="settings-btn" onclick="toggleSettingsModal()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -266,7 +266,7 @@
 
     <script>
         let newsCount = 0;
-        let localIsDirty = false; // Wird true, sobald im Verwaltung-Tab getippt wird
+        let localIsDirty = false; 
 
         // --- TAB & SYNC LOGIK ---
         async function switchTab(tabName) {
@@ -276,16 +276,17 @@
             document.querySelector(`.nav-item[onclick="switchTab('${tabName}')"]`).classList.add('active');
             
             if (tabName === 'verwaltung') {
-                // Wir betreten Verwaltung: Wir laden IMMER nur die aktuellsten Daten von der Cloud (Pull)
+                // Alle Klappmenüs einklappen!
+                document.querySelectorAll('#verwaltung-tab details').forEach(d => d.open = false);
+
                 if (localStorage.getItem('fbProjectId')) {
                     await silentFirebasePull();
-                    localIsDirty = false; // Zurücksetzen, da wir jetzt den neuesten Cloud-Stand haben
+                    localIsDirty = false; 
                 }
                 renderVerwaltung();
             } else if (tabName === 'planer') {
-                // Wir betreten Planer: Falls im Verwaltung-Tab was geändert wurde, lade es in Cloud hoch (Push)
                 if (localIsDirty && localStorage.getItem('fbProjectId')) {
-                    extractVerwaltungData(); // Holt die Daten frisch aus den UI-Feldern
+                    extractVerwaltungData(); 
                     await pushToFirebaseSilent();
                     localIsDirty = false;
                 }
@@ -500,11 +501,15 @@
                 if (p.length === 3) isoDate = `${p[2]}-${p[1]}-${p[0]}`;
             }
 
+            // Uhrzeit sichern, dass sie ein führendes Null hat (für HTML Input Time)
+            let u = data.uhrzeit || '';
+            if (u.match(/^\d:\d\d$/)) u = '0' + u;
+
             const wrapDate = document.createElement('div'); wrapDate.className = 'ios-list-row'; wrapDate.style.padding = '8px 0';
             wrapDate.innerHTML = `<label>Datum</label><input type="date" class="v-datum" value="${isoDate}" onchange="saveVerwaltungLocal()" style="text-align: center;">`;
             
             const wrapTime = document.createElement('div'); wrapTime.className = 'ios-list-row'; wrapTime.style.padding = '8px 0';
-            wrapTime.innerHTML = `<label>Uhrzeit</label><input type="time" class="v-uhrzeit" value="${data.uhrzeit || ''}" oninput="saveVerwaltungLocal()" style="text-align: center;">`;
+            wrapTime.innerHTML = `<label>Uhrzeit</label><input type="time" class="v-uhrzeit" value="${u}" oninput="saveVerwaltungLocal()" style="text-align: center;">`;
             
             const wrapAnlass = document.createElement('div'); wrapAnlass.className = 'ios-list-row'; wrapAnlass.style.padding = '8px 0';
             wrapAnlass.innerHTML = `<label>Anlass</label><input type="text" class="v-anlass" value="${data.anlass || ''}" placeholder="z.B. Taufe" oninput="saveVerwaltungLocal()" style="text-align: center;">`;
@@ -731,6 +736,8 @@
                         if (fieldObj.integerValue !== undefined) parsedData[key] = parseInt(fieldObj.integerValue, 10);
                         else if (fieldObj.stringValue !== undefined) parsedData[key] = fieldObj.stringValue;
                     }
+                    // Rückgabe des Update-Timestamps, um zu prüfen ob die Cloud neuer ist
+                    parsedData._updateTime = result.updateTime;
                     return parsedData;
                 }
                 return result;
@@ -745,7 +752,8 @@
             const remoteStats = await firebaseRequest('statistik', 'GET', 'int64Map');
             if (remoteStats && Object.keys(remoteStats).length > 0) {
                 appState.serveStats = remoteStats;
-                localStorage.setItem('savedServeStats', JSON.stringify(remoteStats));
+                delete appState.serveStats._updateTime;
+                localStorage.setItem('savedServeStats', JSON.stringify(appState.serveStats));
             }
 
             const remoteRegeln = await firebaseRequest('regeln', 'GET', 'jsonStrings');
@@ -782,6 +790,41 @@
             });
         }
 
+        // --- NEU: PLANER SYNC (Editor & News) ---
+        async function pullAktuellerPlan() {
+            if(!localStorage.getItem('fbProjectId')) return;
+            const remotePlan = await firebaseRequest('aktuellerPlan', 'GET', 'jsonStrings');
+            
+            if (remotePlan && remotePlan.planDataJson) {
+                const remoteTs = parseInt(remotePlan.timestamp || "0", 10);
+                const localTs = parseInt(localStorage.getItem('planTimestamp') || "0", 10);
+                
+                // Wenn die Cloud aktueller ist (oder wir lokal noch gar keinen Timestamp haben), überschreiben wir lokal!
+                if (remoteTs > localTs) {
+                    localStorage.setItem('savedEditorData', remotePlan.planDataJson);
+                    localStorage.setItem('savedNewsData', remotePlan.newsDataJson || "[]");
+                    localStorage.setItem('planTimestamp', remoteTs.toString());
+                }
+            }
+        }
+
+        async function pushAktuellerPlan() {
+            if(!localStorage.getItem('fbProjectId')) return;
+            saveEditorState();
+            saveNewsState();
+            
+            const planDataJson = localStorage.getItem('savedEditorData') || "[]";
+            const newsDataJson = localStorage.getItem('savedNewsData') || "[]";
+            const ts = Date.now().toString();
+            
+            await firebaseRequest('aktuellerPlan', 'PATCH', 'jsonStrings', {
+                planDataJson: planDataJson,
+                newsDataJson: newsDataJson,
+                timestamp: ts
+            });
+            localStorage.setItem('planTimestamp', ts);
+        }
+
         async function manualFirebaseSync() {
             const status = document.getElementById('fbStatus');
             const projectId = document.getElementById('fbProjectId').value.trim();
@@ -789,8 +832,11 @@
             status.innerText = "Lade aus der Cloud... ⏳";
             
             await silentFirebasePull();
+            await pullAktuellerPlan();
+            
             saveVerwaltungLocal(); 
             if(document.getElementById('verwaltung-tab').classList.contains('active')) renderVerwaltung();
+            else renderEditor(JSON.parse(localStorage.getItem('savedEditorData')||"[]"));
             
             status.innerText = "✅ Erfolgreich synchronisiert!";
             setTimeout(() => { status.innerText = ""; }, 3000);
@@ -806,15 +852,14 @@
             try { appState.serveStats = JSON.parse(localStorage.getItem('savedServeStats') || "{}"); } catch(e){}
             try { appState.vormerkungen = JSON.parse(localStorage.getItem('savedVormerkungen') || "[]"); } catch(e){}
             
-            // Firebase Pull
+            // Firebase Pull NUR beim Start
             if (localStorage.getItem('fbProjectId')) {
                 await silentFirebasePull(); 
+                await pullAktuellerPlan();
                 saveVerwaltungLocal();
-                localIsDirty = false; // Nach Start ist nichts "Dirty"
+                localIsDirty = false; 
             }
             
-            renderVerwaltung(); 
-
             const savedEditor = localStorage.getItem('savedEditorData');
             if (savedEditor && savedEditor !== "[]") {
                 renderEditor(JSON.parse(savedEditor));
@@ -1082,7 +1127,7 @@
 
                 if (y > 275) { doc.addPage(); y = 20; }
                 doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(0, 0, 0); 
-                doc.text("Wer eingeteilt ist und nicht dienen kann, sucht sich selbstständig eine Vertretung!", 105, y, { align: "center" });
+                doc.text("Wer eingeteilt ist und nicht dienen kann, sucht sich bitte selbstständig eine Vertretung!", 105, y, { align: "center" });
                 y += 22; 
 
                 const newsItems = [];
@@ -1138,17 +1183,19 @@
                 
                 doc.setTextColor(0, 0, 0); 
 
-                // STATISTIK UPDATE & PUSH
+                // STATISTIK UPDATE
                 currentNamesToServe.forEach(n => appState.serveStats[n] = (appState.serveStats[n] || 0) + 1);
                 localStorage.setItem('savedServeStats', JSON.stringify(appState.serveStats));
                 renderStatsUI(); 
                 
+                // UPLOAD DES AKTUELLEN PLANS IN DIE CLOUD
                 if (document.getElementById('fbProjectId').value.trim()) {
                     await firebaseRequest('statistik', 'PATCH', 'int64Map', appState.serveStats);
+                    await pushAktuellerPlan(); 
                 }
 
                 doc.save("Messdienerplan.pdf");
-                alert("PDF heruntergeladen. Statistik wurde aktualisiert.");
+                alert("PDF heruntergeladen. Statistik & Plan in der Cloud aktualisiert.");
             } catch (err) { alert("PDF Fehler: " + err.message); }
         }
     </script>
