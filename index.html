@@ -17,7 +17,7 @@
     <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=3">
     <link rel="shortcut icon" href="icon.png?v=3">
 
-    <title>Messdienerplan v27.2</title>
+    <title>Messdienerplan v27.3</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -128,7 +128,7 @@
         
         .delete-icon-btn { background: none; border: none; color: var(--danger); padding: 8px; margin: 0; width: auto; font-size: 20px; line-height: 1; }
         
-        /* Roter SVG Delete Button (Block-Ebene) */
+        /* Roter SVG Delete Button */
         .delete-btn { background: transparent; border: none; padding: 0; cursor: pointer; color: var(--danger); display: flex; align-items: center; justify-content: flex-end; width: 24px; height: 24px; margin: 0; }
         .delete-btn svg { width: 18px; height: 18px; }
 
@@ -157,7 +157,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdiener</h1>
-            <span class="version">v27.2</span>
+            <span class="version">v27.3</span>
         </div>
         <button class="settings-btn" onclick="toggleSettingsModal()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -280,6 +280,10 @@
         };
 
         // --- HILFSFUNKTIONEN ---
+        function cleanNameForStats(name) { 
+            return name.replace(/\s*\(neu\)/gi, '').trim(); 
+        }
+
         function generateUUID() {
             if (crypto && crypto.randomUUID) return crypto.randomUUID();
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -288,7 +292,6 @@
             });
         }
 
-        // Nur aktive Gruppennamen extrahieren
         function getAllKnownNames() {
             const names = new Set();
             appState.gruppen.forEach(g => g.mitglieder.forEach(m => {
@@ -329,7 +332,6 @@
             document.querySelector(`.nav-item[onclick="switchTab('${tabName}')"]`).classList.add('active');
             
             if (tabName === 'verwaltung') {
-                // Alle Klappmenüs einklappen!
                 document.querySelectorAll('#verwaltung-tab details').forEach(d => d.open = false);
                 if (localStorage.getItem('fbProjectId')) {
                     await silentFirebasePull();
@@ -482,7 +484,6 @@
             const container = document.getElementById('stats-ui-container');
             container.innerHTML = '';
             
-            // Auto-Clean der Statistik (löscht Metadaten und inaktive)
             const activeNames = getAllKnownNames();
             const cleanStats = {};
             activeNames.forEach(name => {
@@ -821,7 +822,7 @@
             });
         }
 
-        // --- PLANER SYNC (Editor, News & lastGeneratedNames) ---
+        // --- PLANER SYNC (Delta-Baseline für Statistik) ---
         async function pullAktuellerPlan() {
             if(!localStorage.getItem('fbProjectId')) return;
             const remotePlan = await firebaseRequest('aktuellerPlan', 'GET', 'jsonStrings');
@@ -833,7 +834,27 @@
                 if (remoteTs > localTs) {
                     localStorage.setItem('savedEditorData', remotePlan.planDataJson || "[]");
                     localStorage.setItem('savedNewsData', remotePlan.newsDataJson || "[]");
-                    localStorage.setItem('lastGeneratedNames', remotePlan.lastNamesJson || "[]");
+                    
+                    // INTELLIGENTE STATISTIK-BASELINE:
+                    // Wenn der Plan aus der Cloud geladen wird, werden exakt die Namen extrahiert, 
+                    // die darin enthalten sind. Dadurch ist das Delta beim Drucken genau 0, 
+                    // es sei denn, man tauscht manuell jemanden aus!
+                    try {
+                        const parsedPlan = JSON.parse(remotePlan.planDataJson || "[]");
+                        const baselineNames = [];
+                        parsedPlan.forEach(item => {
+                            if (item.art === 'gottesdienst' && item.messdiener && item.messdiener !== "-") {
+                                item.messdiener.split(',').forEach(n => {
+                                    const cName = cleanNameForStats(n);
+                                    if (!cName.toLowerCase().includes("freiwillige") && !cName.toLowerCase().includes("ersatz")) {
+                                        baselineNames.push(cName);
+                                    }
+                                });
+                            }
+                        });
+                        localStorage.setItem('lastGeneratedNames', JSON.stringify(baselineNames));
+                    } catch(e) { console.error(e); }
+                    
                     localStorage.setItem('planTimestamp', remoteTs.toString());
                 }
             }
@@ -846,13 +867,11 @@
             
             const planDataJson = localStorage.getItem('savedEditorData') || "[]";
             const newsDataJson = localStorage.getItem('savedNewsData') || "[]";
-            const lastNamesJson = localStorage.getItem('lastGeneratedNames') || "[]";
             const ts = Date.now().toString();
             
             await firebaseRequest('aktuellerPlan', 'PATCH', 'jsonStrings', {
                 planDataJson: planDataJson,
                 newsDataJson: newsDataJson,
-                lastNamesJson: lastNamesJson,
                 timestamp: ts
             });
             localStorage.setItem('planTimestamp', ts);
@@ -1096,6 +1115,7 @@
                 if(data.error) throw new Error(data.error.message);
 
                 localStorage.removeItem('savedEditorData');
+                // LÖSCHE ALTE STATISTIK-BASELINE DAMIT KI PLAN VOLL GEZÄHLT WIRD
                 localStorage.removeItem('lastGeneratedNames'); 
                 
                 document.getElementById('newsContainer').innerHTML = '';
@@ -1226,7 +1246,7 @@
                         doc.setFont("helvetica", "normal");
                         if (namesArray.length > 0) {
                             namesArray.forEach(name => {
-                                const cleanName = name.replace(/\s*\(neu\)/gi, '').trim(); 
+                                const cleanName = cleanNameForStats(name); 
                                 doc.text(cleanName, margin, y);
                                 y += 6;
                                 if (!cleanName.toLowerCase().includes("freiwillige") && !cleanName.toLowerCase().includes("ersatz")) {
@@ -1274,7 +1294,7 @@
                     } else {
                         formText = `In den kommenden zwei Wochen sind ${vorschauClean} dran. Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:`;
                     }
-                } else { formText = "Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf den Button:"; }
+                } else { formText = "Wenn Abwesenheiten jetzt schon bekannt sind, trage sie ganz einfach online ein, damit sie beim nächsten Plan automatisch berücksichtigt werden. Klicke dazu einfach auf Button:"; }
                 
                 doc.setFont("helvetica", "normal"); doc.setFontSize(11);
                 const splitFormText = doc.splitTextToSize(formText, 150);
@@ -1293,38 +1313,42 @@
                 doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(11);
                 doc.text("Zum Formular", 105, buttonY + 6.5, { align: "center" });
                 doc.link(105 - 23, buttonY, 46, 10, { url: 'https://forms.gle/nSzhoDgeAhUS4QG16' });
+                
                 doc.setTextColor(0, 0, 0); 
 
-                // --- DELTA-STATISTIK BERECHNUNG ---
+                // --- 1. INTELLIGENTE DELTA-STATISTIK BERECHNUNG ---
                 let lastGeneratedNames = JSON.parse(localStorage.getItem('lastGeneratedNames') || "[]");
                 let currentFreq = getFrequencies(currentNamesToServe);
                 let lastFreq = getFrequencies(lastGeneratedNames);
                 let statsChanged = false;
 
+                // Alte Zählungen abziehen
                 for (let name in lastFreq) {
                     if (currentFreq[name] !== lastFreq[name]) statsChanged = true;
                     appState.serveStats[name] = (appState.serveStats[name] || 0) - lastFreq[name];
                     if (appState.serveStats[name] < 0) appState.serveStats[name] = 0;
                 }
                 
+                // Neue Zählungen hinzufügen
                 for (let name in currentFreq) {
                     if (!lastFreq[name] || currentFreq[name] !== lastFreq[name]) statsChanged = true;
                     appState.serveStats[name] = (appState.serveStats[name] || 0) + currentFreq[name];
                 }
 
+                // Den JETZT gedruckten Plan als "bereits gezählt" markieren
                 localStorage.setItem('lastGeneratedNames', JSON.stringify(currentNamesToServe));
                 localStorage.setItem('savedServeStats', JSON.stringify(appState.serveStats));
                 renderStatsUI(); 
 
-                // --- FIREBASE UPLOAD ---
+                // --- 2. FIREBASE UPLOAD (Hintergrund) ---
                 if (document.getElementById('fbProjectId').value.trim()) {
                     if (statsChanged) {
                         firebaseRequest('statistik', 'PATCH', 'int64Map', appState.serveStats);
                     }
-                    pushAktuellerPlan(); 
+                    pushAktuellerPlan(); // Editor, News UND die 'lastGeneratedNames' hochladen!
                 }
 
-                // --- DIREKTES TEILEN ---
+                // --- 3. DIREKTES TEILEN ---
                 const pdfBlob = doc.output('blob');
                 const file = new File([pdfBlob], "Messdienerplan.pdf", { type: "application/pdf" });
 
