@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -17,7 +18,7 @@
     <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=3">
     <link rel="shortcut icon" href="icon.png?v=3">
 
-    <title>Messdienerplan v26.4</title>
+    <title>Messdienerplan v26.5</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -157,7 +158,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdiener</h1>
-            <span class="version">v26.4</span>
+            <span class="version">v26.5</span>
         </div>
         <button class="settings-btn" onclick="toggleSettingsModal()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -264,9 +265,55 @@
         <div class="nav-item" onclick="switchTab('verwaltung')">Verwaltung</div>
     </nav>
 
+    <!-- HIER BEGINNT DAS EINZIGE, ALLUMFASSENDE SCRIPT -->
     <script>
         let newsCount = 0;
         let localIsDirty = false; 
+
+        // --- GLOBAL STATE ---
+        let appState = {
+            gruppen: [], // {id, name, mitglieder: [name1, name2]}
+            neueMinis: [], // [name1, name2]
+            immerZusammen: [], // {id, p1, p2}
+            nieZusammen: [], // {id, p1, p2}
+            vormerkungen: [], // {id, datum, uhrzeit, wochentag, anlass, minis: []}
+            serveStats: {} // { "Name": Zahl }
+        };
+
+        // --- HILFSFUNKTIONEN ---
+        function generateUUID() {
+            if (crypto && crypto.randomUUID) return crypto.randomUUID();
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        function getAllKnownNames() {
+            const names = new Set();
+            appState.gruppen.forEach(g => g.mitglieder.forEach(m => names.add(m)));
+            return Array.from(names).sort();
+        }
+
+        // Fotos für die KI laden
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve({ mimeType: file.type, data: reader.result.split(',')[1], fullDataUri: reader.result });
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // UI Dateiname aktualisieren
+        function updateFileLabel(input, labelId) {
+            const label = document.getElementById(labelId);
+            if (input.files && input.files.length > 0) {
+                label.innerText = "✅ " + (input.files.length === 1 ? input.files[0].name : input.files.length + " Dateien");
+                label.style.backgroundColor = "#e8f5e9";
+                label.style.color = "#2e7d32";
+            }
+        }
 
         // --- TAB & SYNC LOGIK ---
         async function switchTab(tabName) {
@@ -276,9 +323,7 @@
             document.querySelector(`.nav-item[onclick="switchTab('${tabName}')"]`).classList.add('active');
             
             if (tabName === 'verwaltung') {
-                // Alle Klappmenüs einklappen!
                 document.querySelectorAll('#verwaltung-tab details').forEach(d => d.open = false);
-
                 if (localStorage.getItem('fbProjectId')) {
                     await silentFirebasePull();
                     localIsDirty = false; 
@@ -317,31 +362,7 @@
             }
         });
 
-        // --- GLOBAL STATE ---
-        let appState = {
-            gruppen: [], // {id, name, mitglieder: [name1, name2]}
-            neueMinis: [], // [name1, name2]
-            immerZusammen: [], // {id, p1, p2}
-            nieZusammen: [], // {id, p1, p2}
-            vormerkungen: [], // {id, datum, uhrzeit, wochentag, anlass, minis: []}
-            serveStats: {} // { "Name": Zahl }
-        };
-
-        function generateUUID() {
-            if (crypto && crypto.randomUUID) return crypto.randomUUID();
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-        }
-
-        function getAllKnownNames() {
-            const names = new Set();
-            appState.gruppen.forEach(g => g.mitglieder.forEach(m => names.add(m)));
-            return Array.from(names).sort();
-        }
-
-        // --- LOCAL AUTO-SAVE ---
+        // --- LOCAL AUTO-SAVE (VERWALTUNG) ---
         window.saveVerwaltungLocal = function() {
             localIsDirty = true;
             extractVerwaltungData();
@@ -352,7 +373,7 @@
             localStorage.setItem('savedServeStats', JSON.stringify(appState.serveStats));
         }
 
-        // --- UI HILFSFUNKTIONEN (AUTOCOMPLETE) ---
+        // --- AUTOCOMPLETE UI ---
         function createAutocompleteInput(val, placeholder, isNewToggle = false) {
             const wrapper = document.createElement('div');
             wrapper.className = 'autocomplete-wrapper';
@@ -501,7 +522,6 @@
                 if (p.length === 3) isoDate = `${p[2]}-${p[1]}-${p[0]}`;
             }
 
-            // Uhrzeit sichern, dass sie ein führendes Null hat (für HTML Input Time)
             let u = data.uhrzeit || '';
             if (u.match(/^\d:\d\d$/)) u = '0' + u;
 
@@ -631,7 +651,7 @@
             document.getElementById(containerId).appendChild(createRuleBlockDOM({}));
         }
 
-        // --- DATEN EXTRAKTION ---
+        // --- DATEN EXTRAKTION VERWALTUNG ---
         function extractVerwaltungData() {
             appState.vormerkungen = Array.from(document.getElementById('vormerkungen-container').children).map(block => {
                 const minis = Array.from(block.querySelectorAll('.autocomplete-wrapper input')).map(i => i.value.trim()).filter(v => v);
@@ -683,7 +703,7 @@
             saveVerwaltungLocal();
             if (document.getElementById('fbProjectId').value.trim()) {
                 await pushToFirebaseSilent();
-                localIsDirty = false; // Reset the dirty flag
+                localIsDirty = false;
             }
             alert("Lokal & in der Cloud gespeichert!");
         }
@@ -736,7 +756,6 @@
                         if (fieldObj.integerValue !== undefined) parsedData[key] = parseInt(fieldObj.integerValue, 10);
                         else if (fieldObj.stringValue !== undefined) parsedData[key] = fieldObj.stringValue;
                     }
-                    // Rückgabe des Update-Timestamps, um zu prüfen ob die Cloud neuer ist
                     parsedData._updateTime = result.updateTime;
                     return parsedData;
                 }
@@ -799,7 +818,6 @@
                 const remoteTs = parseInt(remotePlan.timestamp || "0", 10);
                 const localTs = parseInt(localStorage.getItem('planTimestamp') || "0", 10);
                 
-                // Wenn die Cloud aktueller ist (oder wir lokal noch gar keinen Timestamp haben), überschreiben wir lokal!
                 if (remoteTs > localTs) {
                     localStorage.setItem('savedEditorData', remotePlan.planDataJson);
                     localStorage.setItem('savedNewsData', remotePlan.newsDataJson || "[]");
@@ -848,11 +866,9 @@
             if(localStorage.getItem('fbProjectId')) document.getElementById('fbProjectId').value = localStorage.getItem('fbProjectId');
             if(localStorage.getItem('sheetsLink')) document.getElementById('sheetsLink').value = localStorage.getItem('sheetsLink');
             
-            // Lade State Lokal
             try { appState.serveStats = JSON.parse(localStorage.getItem('savedServeStats') || "{}"); } catch(e){}
             try { appState.vormerkungen = JSON.parse(localStorage.getItem('savedVormerkungen') || "[]"); } catch(e){}
             
-            // Firebase Pull NUR beim Start
             if (localStorage.getItem('fbProjectId')) {
                 await silentFirebasePull(); 
                 await pullAktuellerPlan();
@@ -878,29 +894,89 @@
             toggleSettingsModal();
         }
 
-        // --- KI AUSWERTUNG ---
-        async function fetchWithRetry(url, options, retries = 1) {
-            for (let i = 0; i < retries; i++) {
-                try {
-                    const response = await fetch(url, options);
-                    if (!response.ok) throw new Error(`API Fehler: ${response.status}`);
-                    return response;
-                } catch (err) {
-                    if (i === retries - 1) throw err;
-                    await new Promise(res => setTimeout(res, 2000));
+        // --- EDITOR SPEICHERN LOGIK WIEDERHERGESTELLT ---
+        function saveNewsState() {
+            const newsItems = [];
+            for (let i = 0; i < newsCount; i++) {
+                const hElem = document.getElementById(`newsHeading_${i}`);
+                const cElem = document.getElementById(`newsContent_${i}`);
+                if (hElem && cElem) {
+                    newsItems.push({ heading: hElem.value, content: cElem.value });
                 }
             }
+            localStorage.setItem('savedNewsData', JSON.stringify(newsItems));
         }
 
-        function updateFileLabel(input, labelId) {
-            const label = document.getElementById(labelId);
-            if (input.files && input.files.length > 0) {
-                label.innerText = "✅ " + (input.files.length === 1 ? input.files[0].name : input.files.length + " Dateien");
-                label.style.backgroundColor = "#e8f5e9";
-                label.style.color = "#2e7d32";
-            }
+        function addNewsItem(heading = '', content = '') {
+            const container = document.getElementById('newsContainer');
+            const div = document.createElement('div');
+            div.className = 'form-block';
+            div.style.padding = '12px';
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.id = `newsHeading_${newsCount}`;
+            input.placeholder = "Überschrift (z.B. Messdienerprobe)";
+            input.value = heading;
+            input.className = 'ios-list-row';
+            input.style = 'width: 100%; border: none; border-bottom: 1px solid var(--border); font-size: 15px; font-weight: bold; padding: 8px 0; margin-bottom: 8px; outline: none; background: transparent;';
+            input.oninput = saveNewsState;
+            
+            const textarea = document.createElement('textarea');
+            textarea.id = `newsContent_${newsCount}`;
+            textarea.placeholder = "Informationen oder Ankündigungen hier eintragen...";
+            textarea.value = content;
+            textarea.style = 'width: 100%; border: none; font-size: 14px; min-height: 60px; outline: none; resize: vertical; margin-top: 0; padding: 0; background: transparent;';
+            textarea.oninput = saveNewsState;
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'delete-btn';
+            delBtn.style = 'position: absolute; right: 12px; top: 12px;';
+            delBtn.innerHTML = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>';
+            delBtn.onclick = function() { div.remove(); saveNewsState(); };
+            
+            div.appendChild(delBtn);
+            div.appendChild(input);
+            div.appendChild(textarea);
+            container.appendChild(div);
+            
+            newsCount++;
+            saveNewsState();
         }
 
+        function saveEditorState() {
+            const container = document.getElementById('editorContainer');
+            if(!container || container.innerHTML.trim() === '') return; 
+            
+            const blocks = container.querySelectorAll('.editor-block');
+            const dataArray = [];
+            
+            blocks.forEach(block => {
+                const art = block.querySelector('.art-input').value;
+                const isNewInput = block.querySelector('.is-new-input');
+                const isNew = isNewInput ? isNewInput.value === 'true' : false;
+
+                if (art === 'woche') {
+                    dataArray.push({ art: 'woche', text: block.querySelector('.woche-text-input').value, isNew: isNew });
+                } else if (art === 'vorschau') {
+                    dataArray.push({ art: 'vorschau', text: block.querySelector('.vorschau-text-input').value, isNew: isNew });
+                } else {
+                    dataArray.push({
+                        art: 'gottesdienst',
+                        wochentag: block.querySelector('.wochentag-input').value,
+                        datum: block.querySelector('.datum-input').value,
+                        typ: block.querySelector('.typ-input').value,
+                        uhrzeit: block.querySelector('.uhrzeit-input').value,
+                        messdiener: block.querySelector('.messdiener-input').value,
+                        isNew: isNew
+                    });
+                }
+            });
+            
+            localStorage.setItem('savedEditorData', JSON.stringify(dataArray));
+        }
+
+        // --- KI AUSWERTUNG ---
         async function analyzeData() {
             const apiKey = localStorage.getItem('geminiApiKey');
             const pfarrbriefInput = document.getElementById('pfarrbriefFile');
@@ -913,7 +989,6 @@
             btn.disabled = true;
             statusDiv.innerHTML = "Werte Pfarrbrief aus... ⏳";
 
-            // Aktuellen Text-Zustand für den Prompt generieren (aus dem verlässlichen appState)
             const groupText = stateToGroupsText();
             const alwaysTogether = appState.immerZusammen.map(p=>`${p.p1} und ${p.p2}`).join('\n');
             const neverTogether = appState.nieZusammen.map(p=>`${p.p1} und ${p.p2}`).join('\n');
@@ -1000,7 +1075,7 @@
             } finally { btn.disabled = false; }
         }
 
-        // --- EDITOR & PDF LOGIK ---
+        // --- EDITOR ---
         function getSortKey(item, originalIndex) {
             if (item.art === 'vorschau') return "999999999999_" + String(originalIndex).padStart(4, '0');
             let dStr = "", tStr = "";
@@ -1061,6 +1136,7 @@
 
         function cleanNameForStats(name) { return name.replace(/\s*\(neu\)/gi, '').trim(); }
 
+        // --- PDF GENERIERUNG ---
         async function generatePDF() {
             try {
                 saveEditorState();
@@ -1188,7 +1264,7 @@
                 localStorage.setItem('savedServeStats', JSON.stringify(appState.serveStats));
                 renderStatsUI(); 
                 
-                // UPLOAD DES AKTUELLEN PLANS IN DIE CLOUD
+                // UPLOAD DES AKTUELLEN PLANS & STATS IN DIE CLOUD
                 if (document.getElementById('fbProjectId').value.trim()) {
                     await firebaseRequest('statistik', 'PATCH', 'int64Map', appState.serveStats);
                     await pushAktuellerPlan(); 
@@ -1201,3 +1277,6 @@
     </script>
 </body>
 </html>
+
+
+```
