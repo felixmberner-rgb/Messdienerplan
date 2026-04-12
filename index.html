@@ -17,7 +17,7 @@
     <link rel="icon" type="image/png" sizes="512x512" href="icon.png?v=3">
     <link rel="shortcut icon" href="icon.png?v=3">
 
-    <title>Messdienerplan v26.6</title>
+    <title>Messdienerplan v27.1</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -157,7 +157,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdiener</h1>
-            <span class="version">v26.6</span>
+            <span class="version">v27.1</span>
         </div>
         <button class="settings-btn" onclick="toggleSettingsModal()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -288,10 +288,19 @@
             });
         }
 
+        // Extrahiert NUR valide Namen, die wirklich in einer Gruppe existieren!
         function getAllKnownNames() {
             const names = new Set();
-            appState.gruppen.forEach(g => g.mitglieder.forEach(m => names.add(m)));
+            appState.gruppen.forEach(g => g.mitglieder.forEach(m => {
+                if (m.trim() !== "") names.add(m.trim());
+            }));
             return Array.from(names).sort();
+        }
+        
+        function getFrequencies(arr) {
+            let freq = {};
+            arr.forEach(n => freq[n] = (freq[n] || 0) + 1);
+            return freq;
         }
 
         function readFileAsBase64(file) {
@@ -472,12 +481,22 @@
             const container = document.getElementById('stats-ui-container');
             container.innerHTML = '';
             
-            const allNamesSet = new Set(getAllKnownNames());
-            Object.keys(appState.serveStats).forEach(n => allNamesSet.add(n));
-            const sortedNames = Array.from(allNamesSet).sort();
-            
-            sortedNames.forEach(name => {
-                const count = appState.serveStats[name] || 0;
+            // DIE WICHTIGSTE ÄNDERUNG: Nur aktive Gruppenmitglieder anzeigen!
+            const activeNames = getAllKnownNames();
+            const cleanStats = {};
+
+            // Befülle die saubere Statistik nur mit bekannten Namen
+            activeNames.forEach(name => {
+                cleanStats[name] = appState.serveStats[name] || 0;
+            });
+
+            // Speichere die sofort bereinigte Statistik im State (Metadaten sind jetzt gelöscht!)
+            appState.serveStats = cleanStats;
+            localStorage.setItem('savedServeStats', JSON.stringify(appState.serveStats));
+
+            // Zeichne UI
+            activeNames.forEach(name => {
+                const count = appState.serveStats[name];
                 const row = document.createElement('div');
                 row.className = 'ios-list-row';
                 row.style.padding = '12px 0';
@@ -698,9 +717,10 @@
 
         async function saveAllVerwaltung() {
             saveVerwaltungLocal();
+            renderStatsUI(); // Einmal zur Sicherheit durchputzen
             if (document.getElementById('fbProjectId').value.trim()) {
                 await pushToFirebaseSilent();
-                localIsDirty = false;
+                localIsDirty = false; 
             }
             alert("Lokal & in der Cloud gespeichert!");
         }
@@ -767,8 +787,8 @@
 
             const remoteStats = await firebaseRequest('statistik', 'GET', 'int64Map');
             if (remoteStats && Object.keys(remoteStats).length > 0) {
+                delete remoteStats._updateTime;
                 appState.serveStats = remoteStats;
-                delete appState.serveStats._updateTime;
                 localStorage.setItem('savedServeStats', JSON.stringify(appState.serveStats));
             }
 
@@ -792,6 +812,7 @@
 
         async function pushToFirebaseSilent() {
             if(!localStorage.getItem('fbProjectId')) return;
+            // Stelle sicher, dass hier NUR ECHTE NAMEN hochgeladen werden!
             await firebaseRequest('statistik', 'PATCH', 'int64Map', appState.serveStats);
             await firebaseRequest('regeln', 'PATCH', 'jsonStrings', {
                 immerZusammenJson: JSON.stringify(appState.immerZusammen),
@@ -806,7 +827,7 @@
             });
         }
 
-        // --- NEU: PLANER SYNC (Editor & News) ---
+        // --- PLANER SYNC (Editor, News & lastGeneratedNames) ---
         async function pullAktuellerPlan() {
             if(!localStorage.getItem('fbProjectId')) return;
             const remotePlan = await firebaseRequest('aktuellerPlan', 'GET', 'jsonStrings');
@@ -816,8 +837,9 @@
                 const localTs = parseInt(localStorage.getItem('planTimestamp') || "0", 10);
                 
                 if (remoteTs > localTs) {
-                    localStorage.setItem('savedEditorData', remotePlan.planDataJson);
+                    localStorage.setItem('savedEditorData', remotePlan.planDataJson || "[]");
                     localStorage.setItem('savedNewsData', remotePlan.newsDataJson || "[]");
+                    localStorage.setItem('lastGeneratedNames', remotePlan.lastNamesJson || "[]");
                     localStorage.setItem('planTimestamp', remoteTs.toString());
                 }
             }
@@ -830,11 +852,13 @@
             
             const planDataJson = localStorage.getItem('savedEditorData') || "[]";
             const newsDataJson = localStorage.getItem('savedNewsData') || "[]";
+            const lastNamesJson = localStorage.getItem('lastGeneratedNames') || "[]";
             const ts = Date.now().toString();
             
             await firebaseRequest('aktuellerPlan', 'PATCH', 'jsonStrings', {
                 planDataJson: planDataJson,
                 newsDataJson: newsDataJson,
+                lastNamesJson: lastNamesJson,
                 timestamp: ts
             });
             localStorage.setItem('planTimestamp', ts);
@@ -974,6 +998,19 @@
         }
 
         // --- KI AUSWERTUNG ---
+        async function fetchWithRetry(url, options, retries = 1) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) throw new Error(`API Fehler: ${response.status}`);
+                    return response;
+                } catch (err) {
+                    if (i === retries - 1) throw err;
+                    await new Promise(res => setTimeout(res, 2000));
+                }
+            }
+        }
+
         async function analyzeData() {
             const apiKey = localStorage.getItem('geminiApiKey');
             const pfarrbriefInput = document.getElementById('pfarrbriefFile');
@@ -1057,6 +1094,8 @@
                 if(data.error) throw new Error(data.error.message);
 
                 localStorage.removeItem('savedEditorData');
+                localStorage.removeItem('lastGeneratedNames'); 
+                
                 document.getElementById('newsContainer').innerHTML = '';
                 newsCount = 0;
                 addNewsItem();
@@ -1132,9 +1171,7 @@
             container.innerHTML += `<div style="padding: 0 4px; padding-bottom:10px;"><button class="btn-secondary" style="width:100%; font-size:15px; margin-top:6px;" onclick="addGottesdienst()">+ Gottesdienst hinzufügen</button></div>`;
         }
 
-        function cleanNameForStats(name) { return name.replace(/\s*\(neu\)/gi, '').trim(); }
-
-        // --- DIRECT SHARE PDF GENERIERUNG ---
+        // --- DIRECT SHARE PDF & DELTA STATISTIK ---
         function generatePDF() {
             try {
                 saveEditorState();
@@ -1254,20 +1291,39 @@
                 doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(11);
                 doc.text("Zum Formular", 105, buttonY + 6.5, { align: "center" });
                 doc.link(105 - 23, buttonY, 46, 10, { url: 'https://forms.gle/nSzhoDgeAhUS4QG16' });
+                
                 doc.setTextColor(0, 0, 0); 
 
-                // 1. STATISTIK LOKAL UPDATEN (Synchron)
-                currentNamesToServe.forEach(n => appState.serveStats[n] = (appState.serveStats[n] || 0) + 1);
+                // --- DELTA-STATISTIK BERECHNUNG ---
+                let lastGeneratedNames = JSON.parse(localStorage.getItem('lastGeneratedNames') || "[]");
+                let currentFreq = getFrequencies(currentNamesToServe);
+                let lastFreq = getFrequencies(lastGeneratedNames);
+                let statsChanged = false;
+
+                for (let name in lastFreq) {
+                    if (currentFreq[name] !== lastFreq[name]) statsChanged = true;
+                    appState.serveStats[name] = (appState.serveStats[name] || 0) - lastFreq[name];
+                    if (appState.serveStats[name] < 0) appState.serveStats[name] = 0;
+                }
+                
+                for (let name in currentFreq) {
+                    if (!lastFreq[name] || currentFreq[name] !== lastFreq[name]) statsChanged = true;
+                    appState.serveStats[name] = (appState.serveStats[name] || 0) + currentFreq[name];
+                }
+
+                localStorage.setItem('lastGeneratedNames', JSON.stringify(currentNamesToServe));
                 localStorage.setItem('savedServeStats', JSON.stringify(appState.serveStats));
                 renderStatsUI(); 
 
-                // 2. FIREBASE UPLOAD (Asynchron im Hintergrund, blockiert nicht!)
+                // --- FIREBASE UPLOAD ---
                 if (document.getElementById('fbProjectId').value.trim()) {
-                    firebaseRequest('statistik', 'PATCH', 'int64Map', appState.serveStats);
+                    if (statsChanged) {
+                        firebaseRequest('statistik', 'PATCH', 'int64Map', appState.serveStats);
+                    }
                     pushAktuellerPlan(); 
                 }
 
-                // 3. SOFORTIGES TEILEN (Damit iOS den Button-Klick nicht vergisst!)
+                // --- DIREKTES TEILEN ---
                 const pdfBlob = doc.output('blob');
                 const file = new File([pdfBlob], "Messdienerplan.pdf", { type: "application/pdf" });
 
