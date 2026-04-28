@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="icon.png?v=3">
     <link rel="shortcut icon" href="icon.png?v=3">
 
-    <title>Messdienerplan v30.4</title>
+    <title>Messdienerplan v30.5</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -111,7 +111,7 @@
         .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Autocomplete Styles (Repariert für volle Breite) */
+        /* Autocomplete Styles (Repariert) */
         .autocomplete-wrapper { position: relative; margin-bottom: 8px; width: 100%; display: flex; align-items: center; gap: 8px;}
         .autocomplete-wrapper input { 
             width: 100%; padding: 12px; border: 1px solid transparent; border-radius: 10px; font-size: 15px; outline: none; 
@@ -119,21 +119,22 @@
         }
         .autocomplete-wrapper input:focus { border-color: var(--primary); background: #fff;}
         .autocomplete-list {
-            position: absolute; top: 100%; left: 0; right: 0; background: #fff; z-index: 9999;
-            border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-height: 150px; overflow-y: auto;
-            display: none; border: 1px solid var(--border); margin-top: 4px;
+            position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; z-index: 99999;
+            border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); max-height: 200px; overflow-y: auto;
+            display: none; border: 1px solid var(--border);
+            -webkit-overflow-scrolling: touch;
         }
-        .autocomplete-list div { padding: 10px 12px; font-size: 15px; cursor: pointer; border-bottom: 1px solid var(--border); }
+        .autocomplete-list div { padding: 12px; font-size: 16px; cursor: pointer; border-bottom: 1px solid var(--border); color: var(--text-main); min-height: 44px; display: flex; align-items: center; }
         .autocomplete-list div:last-child { border-bottom: none; }
         .autocomplete-list div:hover { background: #f0f0f0; }
         
         .btn-trash { 
             background: transparent; border: none; padding: 4px; margin: 0; 
             color: var(--danger); cursor: pointer; display: flex; align-items: center; justify-content: center;
-            width: 32px; height: 32px; border-radius: 8px;
+            width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
         }
         .btn-trash:active { background: #ffebee; }
-        .btn-trash svg { width: 20px; height: 20px; stroke-width: 1.5px; flex-shrink: 0; display: block;}
+        .btn-trash svg { width: 20px; height: 20px; stroke-width: 1.5px; display: block;}
 
         .form-block { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 12px; position: relative; box-shadow: 0 2px 8px rgba(0,0,0,0.02);}
         .form-block-header { font-weight: 600; color: var(--primary); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;}
@@ -217,7 +218,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdiener</h1>
-            <span class="version">v30.4</span>
+            <span class="version">v30.5</span>
         </div>
         <button class="settings-btn" onclick="toggleSettingsModal()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -460,7 +461,8 @@
             nieZusammen: [], 
             vormerkungen: [], 
             serveStats: {},
-            events: [] 
+            events: [],
+            deletedEvents: [] // Wichtig: Speichert gelöschte iCal IDs dauerhaft
         };
 
         // --- HILFSFUNKTIONEN ---
@@ -528,7 +530,7 @@
 
             lines.forEach(line => {
                 if (line.startsWith('BEGIN:VEVENT')) {
-                    currentEvent = { isICal: true, ablauf: [], teilnehmer: [] };
+                    currentEvent = { isICal: true, ablauf: [], teilnehmer: [], manuallyEdited: false };
                 } else if (line.startsWith('END:VEVENT')) {
                     if (currentEvent && currentEvent.titel && currentEvent.datum) {
                         events.push(currentEvent);
@@ -563,9 +565,8 @@
 
         async function syncICalEvents() {
             let targetUrl = "webcal://p119-caldav.icloud.com/published/2/MTY4MzUxMzIxMTYxNjgzNXal66Oxbyu_2FXpnpT4dNonBWU4aRR1wg7Vq1TXG1gRMp9b_1dKruVlFF763c0jm8q_EmBUDJdKCgJTqLQtYpY";
-            targetUrl = targetUrl.replace(/^webcal:\/\//i, 'https://'); // Safari blockt webcal, also https erzwingen
+            targetUrl = targetUrl.replace(/^webcal:\/\//i, 'https://'); 
             
-            // Mehrere sichere Proxies, falls einer kurzzeitig offline ist
             const proxyUrls = [
                 "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl),
                 "https://corsproxy.io/?" + encodeURIComponent(targetUrl),
@@ -593,14 +594,20 @@
                 let changed = false;
                 
                 iCalEvents.forEach(ice => {
+                    // WICHTIG: Wenn das Event vom Nutzer gelöscht wurde, komplett ignorieren!
+                    if (appState.deletedEvents.includes(ice.id)) return;
+
                     const existingIdx = appState.events.findIndex(e => e.id === ice.id);
                     if (existingIdx > -1) {
                         const existing = appState.events[existingIdx];
-                        if (existing.titel !== ice.titel || existing.datum !== ice.datum || existing.beschreibung !== ice.beschreibung) {
-                            existing.titel = ice.titel;
-                            existing.datum = ice.datum;
-                            existing.beschreibung = ice.beschreibung || "";
-                            changed = true;
+                        // WICHTIG: Nur updaten, wenn es NICHT von Hand bearbeitet wurde!
+                        if (!existing.manuallyEdited) {
+                            if (existing.titel !== ice.titel || existing.datum !== ice.datum || existing.beschreibung !== ice.beschreibung) {
+                                existing.titel = ice.titel;
+                                existing.datum = ice.datum;
+                                existing.beschreibung = ice.beschreibung || "";
+                                changed = true;
+                            }
                         }
                     } else {
                         appState.events.push(ice);
@@ -631,17 +638,15 @@
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             
             document.querySelector(`.nav-item[onclick="switchTab('${tabName}')"]`).classList.add('active');
-            
-            // Tab SOFORT anzeigen
             document.getElementById(tabName + '-tab').classList.add('active');
             
             try {
                 if (tabName === 'verwaltung') {
                     document.querySelectorAll('#verwaltung-tab details').forEach(d => d.open = false);
-                    renderVerwaltung();
                     if (localStorage.getItem('fbProjectId')) {
                         silentFirebasePull().then(() => { renderVerwaltung(); localIsDirty = false; });
                     }
+                    renderVerwaltung();
                 } else if (tabName === 'events') {
                     renderEventsList();
                     if (localIsDirty && localStorage.getItem('fbProjectId')) {
@@ -651,7 +656,7 @@
                     if (localStorage.getItem('fbProjectId')) {
                         silentFirebasePull().then(() => {
                             renderEventsList();
-                            syncICalEvents(); // iCal im Hintergrund syncen
+                            syncICalEvents(); 
                         }); 
                     } else {
                         syncICalEvents();
@@ -694,7 +699,7 @@
             localStorage.setItem('savedServeStats', JSON.stringify(appState.serveStats));
         }
 
-        // --- AUTOCOMPLETE UI ---
+        // --- AUTOCOMPLETE UI (Repariert für Touch & Breite) ---
         function createAutocompleteInput(val, placeholder, isNewToggle = false) {
             const wrapper = document.createElement('div');
             wrapper.className = 'autocomplete-wrapper';
@@ -702,6 +707,7 @@
             const inputContainer = document.createElement('div');
             inputContainer.style.position = 'relative';
             inputContainer.style.flex = '1';
+            inputContainer.style.display = 'block';
 
             const input = document.createElement('input');
             input.type = 'text';
@@ -729,12 +735,12 @@
                         if(document.getElementById('verwaltung-tab').classList.contains('active')) saveVerwaltungLocal();
                     };
                     div.onmousedown = selectItem;
-                    div.ontouchstart = selectItem; // Mobile fix
+                    div.ontouchstart = selectItem; // Mobile Fix für Antippen!
                     list.appendChild(div);
                 });
             });
 
-            input.addEventListener('blur', () => { setTimeout(() => list.style.display = 'none', 200); });
+            input.addEventListener('blur', () => { setTimeout(() => list.style.display = 'none', 250); });
             input.addEventListener('focus', () => { if(input.value && list.innerHTML) list.style.display = 'block'; });
 
             inputContainer.appendChild(input);
@@ -846,7 +852,7 @@
                 
                 document.getElementById('event-detail-view').classList.add('active');
             } else {
-                currentEditingEvent = { id: generateUUID(), titel: "", datum: "", beschreibung: "", ablauf: [], teilnehmer: [] };
+                currentEditingEvent = { id: generateUUID(), titel: "", datum: "", beschreibung: "", ablauf: [], teilnehmer: [], manuallyEdited: true };
                 appState.events.push(currentEditingEvent); 
                 
                 document.getElementById('ev-display-titel').innerText = "Neues Event";
@@ -861,7 +867,7 @@
         }
 
         function closeEventDetail() {
-            if (currentEditingEvent && (currentEditingEvent.titel || currentEditingEvent.ablauf.length > 0 || currentEditingEvent.teilnehmer.length > 0)) {
+            if (currentEditingEvent) {
                 saveEventToAppAndCloud();
             }
             document.getElementById('event-detail-view').classList.remove('active');
@@ -893,6 +899,9 @@
             currentEditingEvent.datum = dateVal ? `${dateVal.split('-')[2]}.${dateVal.split('-')[1]}.${dateVal.split('-')[0]}` : "";
             currentEditingEvent.beschreibung = document.getElementById('modal-ev-beschr').value.trim();
             
+            // Wenn der Nutzer etwas speichert, gilt es als manuell bearbeitet (Schutz vor Überschreiben durch iCal)
+            currentEditingEvent.manuallyEdited = true;
+            
             document.getElementById('ev-display-titel').innerText = currentEditingEvent.titel || "Ohne Titel";
             document.getElementById('ev-display-datum').innerText = currentEditingEvent.datum || "Kein Datum festgelegt";
             document.getElementById('ev-display-beschr').innerText = currentEditingEvent.beschreibung || "Keine Beschreibung hinterlegt.";
@@ -903,12 +912,22 @@
 
         async function deleteCurrentEvent() {
             if(confirm("Möchtest du dieses Event wirklich komplett löschen?")) {
+                
+                // iCal ID in die Sperrliste eintragen, damit es nicht neu geladen wird
+                if (currentEditingEvent.isICal || currentEditingEvent.id.startsWith('ical-')) {
+                    if (!appState.deletedEvents.includes(currentEditingEvent.id)) {
+                        appState.deletedEvents.push(currentEditingEvent.id);
+                        localStorage.setItem('deletedEvents', JSON.stringify(appState.deletedEvents));
+                    }
+                }
+                
                 appState.events = appState.events.filter(e => e.id !== currentEditingEvent.id);
                 localStorage.setItem('savedEvents', JSON.stringify(appState.events));
                 
                 if (localStorage.getItem('fbProjectId')) {
                     firebaseRequest('events', 'PATCH', 'jsonStrings', {
-                        eventsJson: JSON.stringify(appState.events)
+                        eventsJson: JSON.stringify(appState.events),
+                        deletedEventsJson: JSON.stringify(appState.deletedEvents)
                     });
                 }
                 
@@ -1117,8 +1136,12 @@
             else appState.events.push(currentEditingEvent);
             
             localStorage.setItem('savedEvents', JSON.stringify(appState.events));
+            
             if (document.getElementById('fbProjectId').value.trim()) {
-                firebaseRequest('events', 'PATCH', 'jsonStrings', { eventsJson: JSON.stringify(appState.events) });
+                firebaseRequest('events', 'PATCH', 'jsonStrings', { 
+                    eventsJson: JSON.stringify(appState.events),
+                    deletedEventsJson: JSON.stringify(appState.deletedEvents)
+                });
             }
             renderEventsList();
         }
@@ -1469,7 +1492,9 @@
             const remoteEvents = await firebaseRequest('events', 'GET', 'jsonStrings');
             if (remoteEvents) {
                 appState.events = safeParse(remoteEvents.eventsJson, []);
+                appState.deletedEvents = safeParse(remoteEvents.deletedEventsJson, []);
                 localStorage.setItem('savedEvents', JSON.stringify(appState.events));
+                localStorage.setItem('deletedEvents', JSON.stringify(appState.deletedEvents));
             }
         }
 
@@ -1488,7 +1513,8 @@
                 vormerkungenJson: JSON.stringify(appState.vormerkungen)
             });
             await firebaseRequest('events', 'PATCH', 'jsonStrings', {
-                eventsJson: JSON.stringify(appState.events)
+                eventsJson: JSON.stringify(appState.events),
+                deletedEventsJson: JSON.stringify(appState.deletedEvents)
             });
         }
 
@@ -1572,9 +1598,9 @@
             appState.serveStats = safeParse(localStorage.getItem('savedServeStats'), {});
             appState.vormerkungen = safeParse(localStorage.getItem('savedVormerkungen'), []);
             appState.events = safeParse(localStorage.getItem('savedEvents'), []);
+            appState.deletedEvents = safeParse(localStorage.getItem('deletedEvents'), []);
             
             if (localStorage.getItem('fbProjectId')) {
-                // Schnelles lokales UI Update
                 if (document.getElementById('events-tab').classList.contains('active')) renderEventsList();
                 
                 await silentFirebasePull(); 
@@ -1593,7 +1619,6 @@
             if (savedNews.length > 0) savedNews.forEach(item => addNewsItem(item.heading, item.content));
             else addNewsItem(); 
             
-            // iCal Background Sync starten, wenn Events-Tab aktiv
             if (document.getElementById('events-tab').classList.contains('active')) {
                 syncICalEvents();
             }
