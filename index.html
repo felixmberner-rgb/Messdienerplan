@@ -13,7 +13,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="icon.png?v=3">
     <link rel="shortcut icon" href="icon.png?v=3">
 
-    <title>Messdienerplan v30.1</title>
+    <title>Messdienerplan v30.4</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -31,7 +31,7 @@
             --input-bg: #F2F2F7;
         }
         
-        * { box-sizing: border-box; } /* Verhindert Layout-Ausbrüche */
+        * { box-sizing: border-box; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -158,26 +158,23 @@
         .event-list-date { background: var(--input-bg); border-radius: 12px; padding: 8px 12px; text-align: center; min-width: 60px;}
         .event-list-date .day { font-size: 22px; font-weight: 700; color: var(--text-main); display: block; line-height: 1; }
         .event-list-date .month { font-size: 12px; font-weight: 600; color: var(--danger); text-transform: uppercase; margin-top: 4px; display: block; }
-        .event-list-info { flex: 1; }
-        .event-list-info h3 { margin: 0 0 4px 0; font-size: 17px; }
-        .event-list-info p { margin: 0; font-size: 14px; color: var(--text-muted); }
+        .event-list-info { flex: 1; overflow: hidden; }
+        .event-list-info h3 { margin: 0 0 4px 0; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .event-list-info p { margin: 0; font-size: 14px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .event-list-arrow { color: var(--border); font-weight: bold; font-size: 20px; }
 
         .overlay-view { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-color); z-index: 2000; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1); overflow-y: auto; padding-bottom: max(40px, env(safe-area-inset-bottom)); }
         .overlay-view.active { transform: translateX(0); }
         
         .overlay-header { position: sticky; top: 0; background: rgba(242, 242, 247, 0.9); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); z-index: 10; display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top)); border-bottom: 1px solid var(--border); height: 60px;}
-        .overlay-header button { width: auto; margin: 0; padding: 8px 0; font-size: 17px; background: transparent; color: var(--primary); border-radius: 0; font-weight: normal; }
-        .overlay-header h2 { position: absolute; left: 50%; transform: translateX(-50%); margin: 0; font-size: 17px; font-weight: 600; }
-        .btn-cancel { color: var(--primary); }
-
+        .overlay-header button { position: relative; z-index: 1; width: auto; margin: 0; padding: 8px 0; font-size: 17px; background: transparent; color: var(--primary); border-radius: 0; font-weight: normal; }
+        .overlay-header h2 { position: absolute; left: 50%; transform: translateX(-50%); margin: 0; font-size: 17px; font-weight: 600; pointer-events: none; width: 60%; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        
         /* Lese-Modus Event Metadaten */
         .ev-readonly-card { padding: 20px; background: #fff; border-radius: 16px; position: relative; box-shadow: 0 2px 10px rgba(0,0,0,0.03); border: 1px solid var(--border); margin-bottom: 16px;}
-        .ev-readonly-title { font-size: 22px; font-weight: 700; margin: 0 0 4px 0; padding-right: 30px; color: var(--text-main); }
+        .ev-readonly-title { font-size: 22px; font-weight: 700; margin: 0 0 4px 0; padding-right: 30px; color: var(--text-main); word-wrap: break-word;}
         .ev-readonly-date { font-size: 15px; font-weight: 600; color: var(--danger); margin: 0 0 12px 0; }
-        .ev-readonly-desc { font-size: 15px; line-height: 1.4; color: var(--text-muted); margin: 0; white-space: pre-wrap; }
-        
-        /* Sauberer Stift-Button ohne Hintergrund */
+        .ev-readonly-desc { font-size: 15px; line-height: 1.4; color: var(--text-muted); margin: 0; white-space: pre-wrap; word-wrap: break-word; }
         .ev-edit-btn { position: absolute; top: 16px; right: 16px; background: transparent; color: var(--primary); border: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
 
         .segmented-control { display: flex; background: #E5E5EA; border-radius: 8px; padding: 2px; margin: 16px 0; }
@@ -192,19 +189,25 @@
         .timeline-title { font-weight: 600; flex: 1; border: none; font-size: 16px; outline: none; }
         .timeline-details { width: 100%; border: none; font-size: 14px; outline: none; color: var(--text-muted); resize: none; overflow:hidden;}
 
-        /* Popup Modals */
+        /* Popup Modals (Absturzsicher, mittig) */
         .glass-modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
             z-index: 3000; display: flex; align-items: center; justify-content: center;
             visibility: visible; opacity: 1; transition: opacity 0.2s, visibility 0.2s;
         }
-        .glass-modal-overlay.hidden { visibility: hidden; opacity: 0; }
+        .glass-modal-overlay.hidden { visibility: hidden; opacity: 0; pointer-events: none; }
         .glass-modal-content {
             background: #fff; width: 90%; max-width: 400px; border-radius: 20px; padding: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.2); transform: scale(1); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         .glass-modal-overlay.hidden .glass-modal-content { transform: scale(0.95); }
+        
+        .modal-header { position: relative; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+        .modal-title { position: absolute; left: 50%; transform: translateX(-50%); font-weight: 600; font-size: 17px; color: var(--text-main); margin: 0; pointer-events: none; width: 60%; text-align: center;}
+        .modal-btn { position: relative; z-index: 1; padding: 0; background: none; border: none; font-size: 16px; cursor: pointer; width: auto; margin: 0; }
+        .modal-btn.cancel { color: var(--primary); font-weight: 400; }
+        .modal-btn.save { color: var(--primary); font-weight: 600; }
     </style>
 </head>
 <body>
@@ -213,7 +216,7 @@
     <div class="header">
         <div class="title-wrapper">
             <h1>Messdiener</h1>
-            <span class="version">v30.1</span>
+            <span class="version">v30.4</span>
         </div>
         <button class="settings-btn" onclick="toggleSettingsModal()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -333,7 +336,6 @@
     <!-- Haupt-Overlay für das Event Detail -->
     <div id="event-detail-view" class="overlay-view">
         <div class="overlay-header">
-            <!-- Das Zurück-Gehen speichert und schließt das Event (Auto-Save) -->
             <button class="btn-cancel" onclick="closeEventDetail()">‹ Zurück</button>
             <h2 id="ev-header-title">Event</h2>
         </div>
@@ -343,7 +345,6 @@
             <!-- Lese-Modus Karte -->
             <div id="ev-header-readonly" class="ev-readonly-card">
                 <button class="ev-edit-btn" onclick="openEventEditModal()">
-                    <!-- Eleganter iOS Stift -->
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                 </button>
                 <h3 id="ev-display-titel" class="ev-readonly-title"></h3>
@@ -378,10 +379,10 @@
     <!-- POPUP MODAL: Event Metadaten bearbeiten -->
     <div id="event-edit-modal" class="glass-modal-overlay hidden">
         <div class="glass-modal-content">
-            <div class="form-block-header" style="margin-bottom:16px;">
-                <button style="padding:0; background:none; color:var(--primary); font-weight:normal;" onclick="closeEventEditModal()">Abbrechen</button>
-                <span style="font-weight:600; font-size:16px; color:var(--text-main);">Bearbeiten</span>
-                <button style="padding:0; background:none; color:var(--primary); font-weight:600;" onclick="saveEventEditModal()">Fertig</button>
+            <div class="modal-header">
+                <button class="modal-btn cancel" onclick="closeEventEditModal()">Abbrechen</button>
+                <span class="modal-title">Bearbeiten</span>
+                <button class="modal-btn save" onclick="saveEventEditModal()">Fertig</button>
             </div>
             
             <div class="ios-list-row" style="padding:12px 0;"><label style="width:70px;">Titel</label><input type="text" id="modal-ev-titel" style="text-align:right;" placeholder="Ausflug..."></div>
@@ -392,24 +393,42 @@
                 <textarea id="modal-ev-beschr" style="width:100%; border:1px solid var(--border); border-radius:10px; min-height:100px; padding:12px; font-size:16px; outline:none; background:var(--input-bg); font-family:inherit; resize:vertical;"></textarea>
             </div>
             
-            <button style="background: #ffebee; color: var(--danger); margin-top:20px; box-shadow:none;" onclick="deleteCurrentEvent()">Event komplett löschen</button>
+            <button style="background: #ffebee; color: var(--danger); margin-top:20px; box-shadow:none; border-radius:12px; padding:14px; font-size:17px; font-weight:600; width:100%; border:none; cursor:pointer;" onclick="deleteCurrentEvent()">Event komplett löschen</button>
         </div>
     </div>
 
     <!-- POPUP MODAL: Einzelne Besonderheit bearbeiten -->
     <div id="teilnehmer-edit-modal" class="glass-modal-overlay hidden">
         <div class="glass-modal-content">
-            <div class="form-block-header" style="margin-bottom:16px;">
-                <button style="padding:0; background:none; color:var(--primary); font-weight:normal;" onclick="closeTeilnehmerModal()">Abbrechen</button>
-                <span style="font-weight:600; font-size:16px; color:var(--text-main);">Eintrag</span>
-                <button style="padding:0; background:none; color:var(--primary); font-weight:600;" onclick="saveTeilnehmerModal()">Fertig</button>
+            <div class="modal-header">
+                <button class="modal-btn cancel" onclick="closeTeilnehmerModal()">Abbrechen</button>
+                <span class="modal-title">Eintrag</span>
+                <button class="modal-btn save" onclick="saveTeilnehmerModal()">Fertig</button>
             </div>
             
             <div id="t-modal-autocomplete-container" style="margin-bottom:12px;"></div>
             
             <textarea id="t-modal-notiz" style="width:100%; border:1px solid var(--border); border-radius:10px; min-height:80px; padding:12px; font-size:16px; outline:none; background:var(--input-bg); font-family:inherit; resize:vertical;" placeholder="Nachricht oder Besonderheit eintragen..."></textarea>
             
-            <button id="t-modal-delete-btn" style="background: #ffebee; color: var(--danger); margin-top:20px; box-shadow:none;" onclick="deleteTeilnehmer()">Eintrag löschen</button>
+            <button id="t-modal-delete-btn" style="background: #ffebee; color: var(--danger); margin-top:20px; box-shadow:none; border-radius:12px; padding:14px; font-size:17px; font-weight:600; width:100%; border:none; cursor:pointer;" onclick="deleteTeilnehmer()">Eintrag löschen</button>
+        </div>
+    </div>
+
+    <!-- POPUP MODAL: Einzelne Station (Ablauf) bearbeiten -->
+    <div id="ablauf-edit-modal" class="glass-modal-overlay hidden">
+        <div class="glass-modal-content">
+            <div class="modal-header">
+                <button class="modal-btn cancel" onclick="closeAblaufModal()">Abbrechen</button>
+                <span class="modal-title">Station</span>
+                <button class="modal-btn save" onclick="saveAblaufModal()">Fertig</button>
+            </div>
+            
+            <div class="ios-list-row" style="padding:12px 0;"><label style="width:70px;">Uhrzeit</label><input type="time" id="a-modal-time" style="text-align:right;"></div>
+            <div class="ios-list-row" style="padding:12px 0;"><label style="width:70px;">Titel</label><input type="text" id="a-modal-title" style="text-align:right;" placeholder="Treffpunkt..."></div>
+            
+            <textarea id="a-modal-details" style="width:100%; border:1px solid var(--border); border-radius:10px; min-height:80px; padding:12px; font-size:16px; outline:none; background:var(--input-bg); font-family:inherit; resize:vertical; margin-top:12px;" placeholder="Details (Ort, Aufgabe...)"></textarea>
+            
+            <button id="a-modal-delete-btn" style="background: #ffebee; color: var(--danger); margin-top:20px; box-shadow:none; border-radius:12px; padding:14px; font-size:17px; font-weight:600; width:100%; border:none; cursor:pointer;" onclick="deleteAblauf()">Station löschen</button>
         </div>
     </div>
 
@@ -431,6 +450,7 @@
         let localIsDirty = false; 
         let currentEditingEvent = null; 
         let currentEditingTeilnehmerId = null;
+        let currentEditingAblaufId = null;
 
         let appState = {
             gruppen: [], 
@@ -490,6 +510,122 @@
             }
         }
 
+        // --- ICAL PARSER & SYNC ---
+        function parseICalDate(icalDateStr) {
+            if (!icalDateStr) return null;
+            const year = icalDateStr.substring(0, 4);
+            const month = icalDateStr.substring(4, 6);
+            const day = icalDateStr.substring(6, 8);
+            return `${day}.${month}.${year}`;
+        }
+
+        function parseICal(icalText) {
+            const events = [];
+            const lines = icalText.split(/\r\n|\n|\r/);
+            let currentEvent = null;
+            let lastKey = null;
+
+            lines.forEach(line => {
+                if (line.startsWith('BEGIN:VEVENT')) {
+                    currentEvent = { isICal: true, ablauf: [], teilnehmer: [] };
+                } else if (line.startsWith('END:VEVENT')) {
+                    if (currentEvent && currentEvent.titel && currentEvent.datum) {
+                        events.push(currentEvent);
+                    }
+                    currentEvent = null;
+                } else if (currentEvent) {
+                    if (line.match(/^[ \t]/)) {
+                        if (lastKey === 'DESCRIPTION') currentEvent.beschreibung += line.substring(1);
+                        else if (lastKey === 'SUMMARY') currentEvent.titel += line.substring(1);
+                        return;
+                    }
+                    
+                    const colonIdx = line.indexOf(':');
+                    if (colonIdx > -1) {
+                        const keyPart = line.substring(0, colonIdx);
+                        const value = line.substring(colonIdx + 1);
+                        const key = keyPart.split(';')[0]; 
+                        lastKey = key;
+
+                        if (key === 'UID') currentEvent.id = 'ical-' + value;
+                        if (key === 'SUMMARY') currentEvent.titel = value;
+                        if (key === 'DESCRIPTION') currentEvent.beschreibung = value.replace(/\\n/g, '\n').replace(/\\,/g, ',');
+                        if (key === 'DTSTART') {
+                            const dateVal = value.split('T')[0];
+                            currentEvent.datum = parseICalDate(dateVal);
+                        }
+                    }
+                }
+            });
+            return events;
+        }
+
+        async function syncICalEvents() {
+            let targetUrl = "webcal://p119-caldav.icloud.com/published/2/MTY4MzUxMzIxMTYxNjgzNXal66Oxbyu_2FXpnpT4dNonBWU4aRR1wg7Vq1TXG1gRMp9b_1dKruVlFF763c0jm8q_EmBUDJdKCgJTqLQtYpY";
+            // WICHTIG: Das Fetch API verlangt https!
+            targetUrl = targetUrl.replace(/^webcal:\/\//i, 'https://');
+            
+            // Mehrere Proxies, falls einer blockiert wird
+            const proxyUrls = [
+                "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl),
+                "https://corsproxy.io/?" + encodeURIComponent(targetUrl)
+            ];
+            
+            let iCalText = null;
+            for (let url of proxyUrls) {
+                try {
+                    const response = await fetch(url);
+                    if (response.ok) {
+                        iCalText = await response.text();
+                        break;
+                    }
+                } catch (e) {
+                    console.warn("Proxy fehlgeschlagen:", url, e);
+                }
+            }
+
+            if (!iCalText) {
+                console.error("iCal Sync fehlgeschlagen: Alle Proxies haben versagt.");
+                return;
+            }
+
+            try {
+                const iCalEvents = parseICal(iCalText);
+                let changed = false;
+                
+                iCalEvents.forEach(ice => {
+                    const existingIdx = appState.events.findIndex(e => e.id === ice.id);
+                    if (existingIdx > -1) {
+                        const existing = appState.events[existingIdx];
+                        if (existing.titel !== ice.titel || existing.datum !== ice.datum || existing.beschreibung !== ice.beschreibung) {
+                            existing.titel = ice.titel;
+                            existing.datum = ice.datum;
+                            existing.beschreibung = ice.beschreibung || "";
+                            changed = true;
+                        }
+                    } else {
+                        appState.events.push(ice);
+                        changed = true;
+                    }
+                });
+
+                if (changed) {
+                    localStorage.setItem('savedEvents', JSON.stringify(appState.events));
+                    if (localStorage.getItem('fbProjectId')) {
+                        firebaseRequest('events', 'PATCH', 'jsonStrings', {
+                            eventsJson: JSON.stringify(appState.events)
+                        });
+                    }
+                    if (document.getElementById('events-tab').classList.contains('active')) {
+                        renderEventsList();
+                    }
+                }
+            } catch (e) {
+                console.error("Fehler beim Parsen der iCal Daten:", e);
+            }
+        }
+
+
         // --- NAVIGATION ---
         async function switchTab(tabName) {
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -512,7 +648,11 @@
                         await pushToFirebaseSilent();
                         localIsDirty = false;
                     }
-                    if (localStorage.getItem('fbProjectId')) await silentFirebasePull(); 
+                    if (localStorage.getItem('fbProjectId')) {
+                        await silentFirebasePull(); 
+                    }
+                    // ICAL Sync
+                    await syncICalEvents();
                     renderEventsList();
                 } else if (tabName === 'planer') {
                     if (localIsDirty && localStorage.getItem('fbProjectId')) {
@@ -527,6 +667,22 @@
 
         function toggleSettingsModal() { document.getElementById('settingsModal').classList.toggle('hidden'); }
 
+        // Tastatur
+        const bottomNav = document.querySelector('.bottom-nav');
+        document.addEventListener('focusin', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') bottomNav.style.display = 'none';
+        });
+        document.addEventListener('focusout', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                setTimeout(() => {
+                    if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                        bottomNav.style.display = 'flex';
+                    }
+                }, 50);
+            }
+        });
+
+        // --- LOCAL AUTO-SAVE (VERWALTUNG) ---
         window.saveVerwaltungLocal = function() {
             localIsDirty = true;
             extractVerwaltungData();
@@ -537,6 +693,7 @@
             localStorage.setItem('savedServeStats', JSON.stringify(appState.serveStats));
         }
 
+        // --- AUTOCOMPLETE UI ---
         function createAutocompleteInput(val, placeholder, isNewToggle = false) {
             const wrapper = document.createElement('div');
             wrapper.className = 'autocomplete-wrapper';
@@ -619,7 +776,7 @@
 
 
         // ==========================================
-        //         EVENTS LOGIK & UI (NEU)
+        //         EVENTS LOGIK & UI
         // ==========================================
 
         function renderEventsList() {
@@ -680,30 +837,28 @@
                 document.getElementById('ev-display-datum').innerText = currentEditingEvent.datum || "Kein Datum festgelegt";
                 document.getElementById('ev-display-beschr').innerText = currentEditingEvent.beschreibung || "Keine Beschreibung hinterlegt.";
                 
-                document.getElementById('ev-header-readonly').classList.remove('hidden');
+                document.getElementById('event-detail-view').classList.add('active');
             } else {
                 currentEditingEvent = { id: generateUUID(), titel: "", datum: "", beschreibung: "", ablauf: [], teilnehmer: [] };
-                appState.events.push(currentEditingEvent); // Direkt anlegen
+                appState.events.push(currentEditingEvent); // Direkt anlegen für sauberes ID Handling
                 
                 document.getElementById('ev-display-titel').innerText = "Neues Event";
                 document.getElementById('ev-display-datum').innerText = "-";
                 document.getElementById('ev-display-beschr').innerText = "";
                 
-                document.getElementById('ev-header-readonly').classList.remove('hidden');
-                
-                // Sofort Bearbeiten öffnen
-                openEventEditModal();
+                document.getElementById('event-detail-view').classList.add('active');
+                openEventEditModal(); 
             }
 
             switchEventInnerTab('teilnehmer'); 
-            document.getElementById('event-detail-view').classList.add('active');
         }
 
         function closeEventDetail() {
-            saveAblaufToCurrentEvent(); // Finaler Scrape des Ablaufs
-            saveEventToAppAndCloud();   // Speichern in Cloud triggern
+            if (currentEditingEvent && (currentEditingEvent.titel || currentEditingEvent.ablauf.length > 0 || currentEditingEvent.teilnehmer.length > 0)) {
+                saveEventToAppAndCloud();
+            }
             document.getElementById('event-detail-view').classList.remove('active');
-            currentEditingEvent = null;
+            currentEditingEvent = null; 
         }
 
         // --- Modale Fenster für Events ---
@@ -731,7 +886,6 @@
             currentEditingEvent.datum = dateVal ? `${dateVal.split('-')[2]}.${dateVal.split('-')[1]}.${dateVal.split('-')[0]}` : "";
             currentEditingEvent.beschreibung = document.getElementById('modal-ev-beschr').value.trim();
             
-            // Lese-Ansicht Updaten
             document.getElementById('ev-display-titel').innerText = currentEditingEvent.titel || "Ohne Titel";
             document.getElementById('ev-display-datum').innerText = currentEditingEvent.datum || "Kein Datum festgelegt";
             document.getElementById('ev-display-beschr').innerText = currentEditingEvent.beschreibung || "Keine Beschreibung hinterlegt.";
@@ -759,14 +913,12 @@
         }
 
         // --- Besonderheiten Modal ---
-        
         function openTeilnehmerModal(tId) {
             currentEditingTeilnehmerId = tId;
             const container = document.getElementById('t-modal-autocomplete-container');
             container.innerHTML = '';
             
-            let nameVal = '';
-            let notizVal = '';
+            let nameVal = '', notizVal = '';
             
             if (tId) {
                 const t = currentEditingEvent.teilnehmer.find(x => x.id === tId);
@@ -779,10 +931,7 @@
             const auto = createAutocompleteInput(nameVal, "Messdiener suchen...", false);
             auto.input.id = 't-modal-name-input';
             auto.wrapper.style.marginBottom = '0';
-            
-            // Trash Icon des Autocomplete im Modal löschen
-            const tr = auto.wrapper.querySelector('.btn-trash');
-            if(tr) tr.remove(); 
+            const tr = auto.wrapper.querySelector('.btn-trash'); if(tr) tr.remove(); 
             
             container.appendChild(auto.wrapper);
             document.getElementById('t-modal-notiz').value = notizVal;
@@ -799,20 +948,13 @@
             const nameStr = document.getElementById('t-modal-name-input').value.trim();
             const notizStr = document.getElementById('t-modal-notiz').value.trim();
             
-            if (!nameStr && !notizStr) {
-                closeTeilnehmerModal();
-                return;
-            }
+            if (!nameStr && !notizStr) { closeTeilnehmerModal(); return; }
             
             if (currentEditingTeilnehmerId) {
                 const t = currentEditingEvent.teilnehmer.find(x => x.id === currentEditingTeilnehmerId);
                 if(t) { t.name = nameStr; t.notiz = notizStr; }
             } else {
-                currentEditingEvent.teilnehmer.push({
-                    id: generateUUID(),
-                    name: nameStr,
-                    notiz: notizStr
-                });
+                currentEditingEvent.teilnehmer.push({ id: generateUUID(), name: nameStr, notiz: notizStr });
             }
             
             saveEventToAppAndCloud();
@@ -829,14 +971,61 @@
             }
         }
 
-        // --- Tabs Innerhalb des Events ---
-        
-        function switchEventInnerTab(tab) {
-            // Speichere Ablauf bevor er verschwindet
-            if (document.getElementById('ev-tab-ablauf').classList.contains('active')) {
-                saveAblaufToCurrentEvent();
+        // --- Ablauf Modal ---
+        function openAblaufModal(aId) {
+            currentEditingAblaufId = aId;
+            let timeVal = '', titleVal = '', detailsVal = '';
+            
+            if (aId) {
+                const a = currentEditingEvent.ablauf.find(x => x.id === aId);
+                if(a) { timeVal = a.uhrzeit; titleVal = a.titel; detailsVal = a.details; }
+                document.getElementById('a-modal-delete-btn').style.display = 'block';
+            } else {
+                document.getElementById('a-modal-delete-btn').style.display = 'none';
             }
             
+            document.getElementById('a-modal-time').value = timeVal;
+            document.getElementById('a-modal-title').value = titleVal;
+            document.getElementById('a-modal-details').value = detailsVal;
+            
+            document.getElementById('ablauf-edit-modal').classList.remove('hidden');
+        }
+
+        function closeAblaufModal() {
+            document.getElementById('ablauf-edit-modal').classList.add('hidden');
+            currentEditingAblaufId = null;
+        }
+
+        function saveAblaufModal() {
+            const timeStr = document.getElementById('a-modal-time').value;
+            const titleStr = document.getElementById('a-modal-title').value.trim();
+            const detailsStr = document.getElementById('a-modal-details').value.trim();
+            
+            if (!timeStr && !titleStr && !detailsStr) { closeAblaufModal(); return; }
+            
+            if (currentEditingAblaufId) {
+                const a = currentEditingEvent.ablauf.find(x => x.id === currentEditingAblaufId);
+                if(a) { a.uhrzeit = timeStr; a.titel = titleStr; a.details = detailsStr; }
+            } else {
+                currentEditingEvent.ablauf.push({ id: generateUUID(), uhrzeit: timeStr, titel: titleStr, details: detailsStr });
+            }
+            
+            saveEventToAppAndCloud();
+            closeAblaufModal();
+            renderAblaufList();
+        }
+
+        function deleteAblauf() {
+            if(currentEditingAblaufId && confirm("Diese Station löschen?")) {
+                currentEditingEvent.ablauf = currentEditingEvent.ablauf.filter(x => x.id !== currentEditingAblaufId);
+                saveEventToAppAndCloud();
+                closeAblaufModal();
+                renderAblaufList();
+            }
+        }
+
+        // --- Tabs Innerhalb des Events ---
+        function switchEventInnerTab(tab) {
             document.getElementById('ev-tab-ablauf').classList.remove('active');
             document.getElementById('ev-tab-teilnehmer').classList.remove('active');
             document.getElementById('ev-content-ablauf').classList.add('hidden');
@@ -849,56 +1038,42 @@
             else renderTeilnehmerList();
         }
 
-        // --- Ablauf UI (Auto-Save auf jeden Tastendruck) ---
-        
+        // -- Ablaufplan UI (Lese-Modus) --
         function renderAblaufList() {
             const c = document.getElementById('ev-ablauf-container');
             c.innerHTML = '';
             if(!currentEditingEvent.ablauf) currentEditingEvent.ablauf = [];
-            currentEditingEvent.ablauf.forEach(a => c.appendChild(createAblaufDOM(a)));
-        }
-
-        function saveAblaufToCurrentEvent() {
-            const c = document.getElementById('ev-ablauf-container');
-            currentEditingEvent.ablauf = Array.from(c.children).map(item => {
-                return {
-                    id: item.dataset.id,
-                    uhrzeit: item.querySelector('.tl-time').value,
-                    titel: item.querySelector('.tl-title').value.trim(),
-                    details: item.querySelector('.tl-details').value.trim()
-                };
-            }).filter(i => i.titel || i.details);
             
-            saveEventToAppAndCloud();
+            if (currentEditingEvent.ablauf.length === 0) {
+                c.innerHTML = `<p style="text-align:center; color:var(--text-muted); font-size:14px; margin-top:20px;">Keine Stationen hinterlegt.</p>`;
+                return;
+            }
+
+            const sortedAblauf = [...currentEditingEvent.ablauf].sort((a, b) => (a.uhrzeit||"").localeCompare(b.uhrzeit||""));
+
+            sortedAblauf.forEach(a => {
+                const div = document.createElement('div');
+                div.className = 'timeline-item';
+                div.style.cursor = 'pointer';
+                div.style.padding = '16px';
+                div.dataset.id = a.id;
+                div.onclick = () => openAblaufModal(a.id);
+                
+                div.innerHTML = `
+                    <div class="timeline-dot" style="top: 20px;"></div>
+                    <div class="timeline-header" style="margin-bottom:0;">
+                        <span class="timeline-time">${a.uhrzeit || '--:--'}</span>
+                        <span style="font-weight:600; flex:1; font-size:16px; color:var(--text-main);">${a.titel || 'Unbenannte Station'}</span>
+                    </div>
+                    ${a.details ? `<div style="font-size:14px; color:var(--text-muted); margin-top:6px; white-space:pre-wrap; padding-left: 60px;">${a.details}</div>` : ''}
+                `;
+                c.appendChild(div);
+            });
         }
 
-        function createAblaufDOM(data) {
-            const div = document.createElement('div');
-            div.className = 'timeline-item';
-            div.dataset.id = data.id || generateUUID();
-            
-            div.innerHTML = `
-                <div class="timeline-dot"></div>
-                <div class="timeline-header">
-                    <input type="time" class="timeline-time tl-time" value="${data.uhrzeit || ''}" onchange="saveAblaufToCurrentEvent()">
-                    <button class="btn-trash" onclick="this.closest('.timeline-item').remove(); saveAblaufToCurrentEvent();">${trashIconSVG}</button>
-                </div>
-                <input type="text" class="timeline-title tl-title" placeholder="Titel / Station" value="${data.titel || ''}" oninput="saveAblaufToCurrentEvent()" style="width:100%; font-weight:600; font-size:16px; border:none; outline:none; margin-bottom:4px; background: transparent;">
-                <textarea class="timeline-details tl-details" placeholder="Details (Treffpunkt etc.)" oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'; saveAblaufToCurrentEvent();" style="background: transparent; min-height:40px;">${data.details || ''}</textarea>
-            `;
-            setTimeout(() => {
-                const ta = div.querySelector('textarea');
-                ta.style.height = ta.scrollHeight + 'px';
-            }, 0);
-            return div;
-        }
+        function addAblaufItemUI() { openAblaufModal(null); }
 
-        function addAblaufItemUI() {
-            document.getElementById('ev-ablauf-container').appendChild(createAblaufDOM({}));
-            saveAblaufToCurrentEvent();
-        }
-
-        // --- Besonderheiten Lese-Ansicht ---
+        // -- Besonderheiten Lese-Ansicht --
         function renderTeilnehmerList() {
             const c = document.getElementById('ev-teilnehmer-container');
             c.innerHTML = '';
@@ -926,27 +1101,20 @@
             });
         }
 
-        function addTeilnehmerItemUI() {
-            openTeilnehmerModal(null);
-        }
+        function addTeilnehmerItemUI() { openTeilnehmerModal(null); }
 
-        // Hilfsfunktion: Speichert das aktuelle Event in AppState und Cloud
         function saveEventToAppAndCloud() {
             if (!currentEditingEvent) return;
             const index = appState.events.findIndex(e => e.id === currentEditingEvent.id);
             if (index > -1) appState.events[index] = currentEditingEvent;
+            else appState.events.push(currentEditingEvent);
             
             localStorage.setItem('savedEvents', JSON.stringify(appState.events));
-            
             if (document.getElementById('fbProjectId').value.trim()) {
-                firebaseRequest('events', 'PATCH', 'jsonStrings', {
-                    eventsJson: JSON.stringify(appState.events)
-                });
+                firebaseRequest('events', 'PATCH', 'jsonStrings', { eventsJson: JSON.stringify(appState.events) });
             }
-            // Aktualisiere die Hintergrund-Liste
             renderEventsList();
         }
-
 
         // ==========================================
         //         VERWALTUNG UI RENDERER 
@@ -1147,9 +1315,7 @@
             return block;
         }
 
-        function addRuleBlock(containerId) {
-            document.getElementById(containerId).appendChild(createRuleBlockDOM({}));
-        }
+        function addRuleBlock(containerId) { document.getElementById(containerId).appendChild(createRuleBlockDOM({})); }
 
         // --- DATEN EXTRAKTION ---
         function extractVerwaltungData() {
@@ -1261,7 +1427,9 @@
                     return parsedData;
                 }
                 return result;
-            } catch (e) { return null; }
+            } catch (e) {
+                return null;
+            }
         }
 
         async function silentFirebasePull() {
@@ -1414,6 +1582,11 @@
             const savedNews = safeParse(localStorage.getItem('savedNewsData'), []);
             if (savedNews.length > 0) savedNews.forEach(item => addNewsItem(item.heading, item.content));
             else addNewsItem(); 
+            
+            // iCal Background Sync starten, wenn Events-Tab aktiv
+            if (document.getElementById('events-tab').classList.contains('active')) {
+                syncICalEvents();
+            }
         };
 
         function saveCoreSettings() {
