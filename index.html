@@ -111,19 +111,20 @@
         .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Autocomplete Styles */
+        /* Autocomplete Styles (Repariert für volle Breite) */
         .autocomplete-wrapper { position: relative; margin-bottom: 8px; width: 100%; display: flex; align-items: center; gap: 8px;}
         .autocomplete-wrapper input { 
-            flex: 1; padding: 12px; border: 1px solid transparent; border-radius: 10px; font-size: 15px; outline: none; 
+            width: 100%; padding: 12px; border: 1px solid transparent; border-radius: 10px; font-size: 15px; outline: none; 
             background: var(--input-bg); transition: border-color 0.2s, background 0.2s;
         }
         .autocomplete-wrapper input:focus { border-color: var(--primary); background: #fff;}
         .autocomplete-list {
-            position: absolute; top: 100%; left: 0; right: 34px; background: #fff; z-index: 9999;
+            position: absolute; top: 100%; left: 0; right: 0; background: #fff; z-index: 9999;
             border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-height: 150px; overflow-y: auto;
             display: none; border: 1px solid var(--border); margin-top: 4px;
         }
         .autocomplete-list div { padding: 10px 12px; font-size: 15px; cursor: pointer; border-bottom: 1px solid var(--border); }
+        .autocomplete-list div:last-child { border-bottom: none; }
         .autocomplete-list div:hover { background: #f0f0f0; }
         
         .btn-trash { 
@@ -562,13 +563,13 @@
 
         async function syncICalEvents() {
             let targetUrl = "webcal://p119-caldav.icloud.com/published/2/MTY4MzUxMzIxMTYxNjgzNXal66Oxbyu_2FXpnpT4dNonBWU4aRR1wg7Vq1TXG1gRMp9b_1dKruVlFF763c0jm8q_EmBUDJdKCgJTqLQtYpY";
-            // WICHTIG: Das Fetch API verlangt https!
-            targetUrl = targetUrl.replace(/^webcal:\/\//i, 'https://');
+            targetUrl = targetUrl.replace(/^webcal:\/\//i, 'https://'); // Safari blockt webcal, also https erzwingen
             
-            // Mehrere Proxies, falls einer blockiert wird
+            // Mehrere sichere Proxies, falls einer kurzzeitig offline ist
             const proxyUrls = [
                 "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl),
-                "https://corsproxy.io/?" + encodeURIComponent(targetUrl)
+                "https://corsproxy.io/?" + encodeURIComponent(targetUrl),
+                "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(targetUrl)
             ];
             
             let iCalText = null;
@@ -579,13 +580,11 @@
                         iCalText = await response.text();
                         break;
                     }
-                } catch (e) {
-                    console.warn("Proxy fehlgeschlagen:", url, e);
-                }
+                } catch (e) { console.warn("Proxy übersprungen:", url); }
             }
 
             if (!iCalText) {
-                console.error("iCal Sync fehlgeschlagen: Alle Proxies haben versagt.");
+                console.error("iCal Sync fehlgeschlagen: Keine Serververbindung.");
                 return;
             }
 
@@ -632,33 +631,35 @@
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             
             document.querySelector(`.nav-item[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            
+            // Tab SOFORT anzeigen
             document.getElementById(tabName + '-tab').classList.add('active');
             
             try {
                 if (tabName === 'verwaltung') {
                     document.querySelectorAll('#verwaltung-tab details').forEach(d => d.open = false);
-                    if (localStorage.getItem('fbProjectId')) {
-                        await silentFirebasePull();
-                        localIsDirty = false; 
-                    }
                     renderVerwaltung();
+                    if (localStorage.getItem('fbProjectId')) {
+                        silentFirebasePull().then(() => { renderVerwaltung(); localIsDirty = false; });
+                    }
                 } else if (tabName === 'events') {
+                    renderEventsList();
                     if (localIsDirty && localStorage.getItem('fbProjectId')) {
                         extractVerwaltungData(); 
-                        await pushToFirebaseSilent();
-                        localIsDirty = false;
+                        pushToFirebaseSilent().then(() => { localIsDirty = false; });
                     }
                     if (localStorage.getItem('fbProjectId')) {
-                        await silentFirebasePull(); 
+                        silentFirebasePull().then(() => {
+                            renderEventsList();
+                            syncICalEvents(); // iCal im Hintergrund syncen
+                        }); 
+                    } else {
+                        syncICalEvents();
                     }
-                    // ICAL Sync
-                    await syncICalEvents();
-                    renderEventsList();
                 } else if (tabName === 'planer') {
                     if (localIsDirty && localStorage.getItem('fbProjectId')) {
                         extractVerwaltungData(); 
-                        await pushToFirebaseSilent();
-                        localIsDirty = false;
+                        pushToFirebaseSilent().then(() => { localIsDirty = false; });
                     }
                     renderEditor(safeParse(localStorage.getItem('savedEditorData'), []));
                 }
@@ -698,6 +699,10 @@
             const wrapper = document.createElement('div');
             wrapper.className = 'autocomplete-wrapper';
             
+            const inputContainer = document.createElement('div');
+            inputContainer.style.position = 'relative';
+            inputContainer.style.flex = '1';
+
             const input = document.createElement('input');
             input.type = 'text';
             input.value = val;
@@ -717,24 +722,27 @@
                 suggestions.forEach(item => {
                     const div = document.createElement('div');
                     div.innerText = item;
-                    div.onmousedown = (e) => { 
+                    const selectItem = (e) => { 
                         e.preventDefault();
                         input.value = item;
                         list.style.display = 'none';
                         if(document.getElementById('verwaltung-tab').classList.contains('active')) saveVerwaltungLocal();
                     };
+                    div.onmousedown = selectItem;
+                    div.ontouchstart = selectItem; // Mobile fix
                     list.appendChild(div);
                 });
             });
 
-            input.addEventListener('blur', () => { setTimeout(() => list.style.display = 'none', 150); });
+            input.addEventListener('blur', () => { setTimeout(() => list.style.display = 'none', 200); });
             input.addEventListener('focus', () => { if(input.value && list.innerHTML) list.style.display = 'block'; });
 
-            wrapper.appendChild(input);
+            inputContainer.appendChild(input);
+            inputContainer.appendChild(list);
+            wrapper.appendChild(inputContainer);
             
-            let neuToggle = null;
             if (isNewToggle) {
-                neuToggle = document.createElement('button');
+                const neuToggle = document.createElement('button');
                 neuToggle.type = 'button';
                 neuToggle.style = "background:transparent; color:#8e8e93; border:1px solid #c6c6c8; width:40px; margin:0; padding:10px 0; font-size:12px; border-radius:8px;";
                 neuToggle.innerText = "NEU";
@@ -769,9 +777,8 @@
             delBtn.onclick = () => { wrapper.remove(); if(document.getElementById('verwaltung-tab').classList.contains('active')) saveVerwaltungLocal(); };
             
             wrapper.appendChild(delBtn);
-            wrapper.appendChild(list);
             
-            return { wrapper, input, neuToggle };
+            return { wrapper, input };
         }
 
 
@@ -840,7 +847,7 @@
                 document.getElementById('event-detail-view').classList.add('active');
             } else {
                 currentEditingEvent = { id: generateUUID(), titel: "", datum: "", beschreibung: "", ablauf: [], teilnehmer: [] };
-                appState.events.push(currentEditingEvent); // Direkt anlegen für sauberes ID Handling
+                appState.events.push(currentEditingEvent); 
                 
                 document.getElementById('ev-display-titel').innerText = "Neues Event";
                 document.getElementById('ev-display-datum').innerText = "-";
@@ -905,9 +912,9 @@
                     });
                 }
                 
+                currentEditingEvent = null; 
                 closeEventEditModal();
                 document.getElementById('event-detail-view').classList.remove('active');
-                currentEditingEvent = null;
                 renderEventsList();
             }
         }
@@ -1567,6 +1574,9 @@
             appState.events = safeParse(localStorage.getItem('savedEvents'), []);
             
             if (localStorage.getItem('fbProjectId')) {
+                // Schnelles lokales UI Update
+                if (document.getElementById('events-tab').classList.contains('active')) renderEventsList();
+                
                 await silentFirebasePull(); 
                 await pullAktuellerPlan();
                 saveVerwaltungLocal();
@@ -1596,18 +1606,18 @@
             toggleSettingsModal();
         }
 
-        function hardReloadApp() {
-            saveCoreSettings();
-            if ('caches' in window) caches.keys().then((names) => names.forEach(name => caches.delete(name)));
-            window.location.reload(true);
-        }
-
         function resetStats() {
             if(confirm("Möchtest du die Statistik wirklich komplett löschen? Alle Zähler werden auf 0 gesetzt.")) {
                 appState.serveStats = {};
                 localStorage.setItem('savedServeStats', "{}");
                 renderStatsUI();
             }
+        }
+
+        function hardReloadApp() {
+            saveCoreSettings();
+            if ('caches' in window) caches.keys().then((names) => names.forEach(name => caches.delete(name)));
+            window.location.reload(true);
         }
 
         // --- PLANER LOGIK ---
