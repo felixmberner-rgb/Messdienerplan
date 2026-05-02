@@ -408,7 +408,7 @@
                 <button class="modal-btn save" onclick="saveTeilnehmerModal()">Fertig</button>
             </div>
             
-            <div id="t-modal-autocomplete-container" style="margin-bottom:12px;"></div>
+            <div id="t-modal-autocomplete-container" style="margin-bottom:12px; position:relative; z-index:100;"></div>
             
             <textarea id="t-modal-notiz" style="width:100%; border:1px solid var(--border); border-radius:10px; min-height:80px; padding:12px; font-size:16px; outline:none; background:var(--input-bg); font-family:inherit; resize:vertical;" placeholder="Nachricht oder Besonderheit eintragen..."></textarea>
             
@@ -721,10 +721,22 @@
                 if(document.getElementById('verwaltung-tab').classList.contains('active')) saveVerwaltungLocal();
                 list.innerHTML = '';
                 const query = this.value.toLowerCase();
-                list.style.display = query ? 'block' : 'none';
-                if (!query) return;
+                
+                // Behebt den 1mm Bug: Liste sofort unsichtbar machen, wenn leer!
+                if (!query) {
+                    list.style.display = 'none';
+                    return;
+                }
 
                 const suggestions = getAllKnownNames().filter(n => n.toLowerCase().includes(query));
+                
+                if (suggestions.length === 0) {
+                    list.style.display = 'none';
+                    return;
+                }
+                
+                list.style.display = 'block';
+
                 suggestions.forEach(item => {
                     const div = document.createElement('div');
                     div.innerText = item;
@@ -1579,8 +1591,6 @@
             await silentFirebasePull();
             await pullAktuellerPlan();
             
-            saveVerwaltungLocal(); 
-            
             if(document.getElementById('verwaltung-tab').classList.contains('active')) renderVerwaltung();
             else if(document.getElementById('events-tab').classList.contains('active')) renderEventsList();
             else renderEditor(safeParse(localStorage.getItem('savedEditorData'), []));
@@ -1601,11 +1611,11 @@
             appState.deletedEvents = safeParse(localStorage.getItem('deletedEvents'), []);
             
             if (localStorage.getItem('fbProjectId')) {
+                // Schnelles lokales UI Update
                 if (document.getElementById('events-tab').classList.contains('active')) renderEventsList();
                 
                 await silentFirebasePull(); 
                 await pullAktuellerPlan();
-                saveVerwaltungLocal();
                 localIsDirty = false; 
             }
             
